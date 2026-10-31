@@ -4,7 +4,7 @@ Implements the Indian National Air Quality Index (NAQI) breakpoints from PM2.5 (
 and computes demographic-specific Safety Indices (1 to 10 scale).
 """
 
-from typing import Dict, Tuple, Union
+from typing import Any, Dict, Tuple, Union
 import numpy as np
 
 # Indian National AQI Breakpoints for PM2.5 (ug/m3 -> AQI)

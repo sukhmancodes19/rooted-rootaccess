@@ -1,4 +1,4 @@
-import json
+﻿import json
 import os
 from pathlib import Path
 import folium
@@ -35,6 +35,11 @@ from src.predictor import (
     generate_and_save_per_hex_forecast,
     train_lightgbm_models,
 )
+try:
+    from src.router import plan_routes, geocode_place
+    ROUTER_AVAILABLE = True
+except ImportError:
+    ROUTER_AVAILABLE = False
 
 # -----------------------------------------------------------------------------
 # Page Configuration & Clean Eco Pehredar Styling
@@ -325,11 +330,12 @@ st.markdown("<br>", unsafe_allow_html=True)
 # -----------------------------------------------------------------------------
 # Main Feature Tabs
 # -----------------------------------------------------------------------------
-tab_map, tab_trend, tab_safety, tab_advisor, tab_eval = st.tabs([
+tab_map, tab_trend, tab_safety, tab_advisor, tab_airguard, tab_eval = st.tabs([
     "🗺️ Neighbourhood H3 Grid Map",
     "📈 72h Forecast & Uncertainty Band",
     "🛡️ Safety Index Calculator",
     "💬 Pehredar AI Advisor",
+    "🚦 AI Air Guard",
     "📊 Model Evaluation & SHAP",
 ])
 
@@ -390,7 +396,7 @@ with tab_map:
         m = folium.Map(
             location=[30.342, 76.395],
             zoom_start=12,
-            tiles="CartoDB positron",
+            tiles="OpenStreetMap",
             control_scale=True,
         )
 
@@ -475,6 +481,169 @@ with tab_map:
                 """,
                 unsafe_allow_html=True,
             )
+
+    # -------------------------------------------------------------------------
+    # Route Planning Panel
+    # -------------------------------------------------------------------------
+    st.divider()
+    with st.expander("🗺️ Plan a Safe Route", expanded=False):
+        st.markdown(
+            "Find the **safest route** between two places in Patiala based on predicted air quality along the path."
+        )
+
+        if not ROUTER_AVAILABLE:
+            st.error("⚠️ Router module not available. Check src/router.py is installed correctly.")
+        else:
+            r_col1, r_col2 = st.columns(2)
+            with r_col1:
+                route_from = st.text_input(
+                    "📍 From (origin):",
+                    value="Thapar University, Patiala",
+                    key="route_from",
+                    help="Enter a locality name, landmark, or full address in Patiala.",
+                )
+                route_depart = st.selectbox(
+                    "🕐 Departure time:",
+                    options=["Now", "+1h", "+3h", "+6h", "+12h", "+24h"],
+                    index=0,
+                    key="route_depart",
+                )
+                route_profile = st.selectbox(
+                    "👤 Health profile:",
+                    options=["Healthy Adult", "Children / Elderly / Pregnant", "Asthma / Respiratory"],
+                    index=0,
+                    key="route_profile",
+                )
+
+            with r_col2:
+                route_to = st.text_input(
+                    "🏁 To (destination):",
+                    value="Baradari Gardens, Patiala",
+                    key="route_to",
+                    help="Enter a locality name, landmark, or full address in Patiala.",
+                )
+                route_mode = st.selectbox(
+                    "🚶 Travel mode:",
+                    options=["Walk 🚶", "Bike 🚴", "Car 🚗"],
+                    index=0,
+                    key="route_mode",
+                )
+
+            find_route_btn = st.button("🔍 Find Safest Route", key="find_route_btn", use_container_width=True)
+
+            if find_route_btn:
+                # Map UI labels to internal values
+                depart_offset_map = {"Now": 0, "+1h": 1, "+3h": 3, "+6h": 6, "+12h": 12, "+24h": 24}
+                mode_map = {"Walk 🚶": "walk", "Bike 🚴": "bike", "Car 🚗": "car"}
+                profile_map = {
+                    "Healthy Adult": "healthy",
+                    "Children / Elderly / Pregnant": "vulnerable",
+                    "Asthma / Respiratory": "respiratory",
+                }
+
+                depart_offset = depart_offset_map.get(route_depart, 0)
+                travel_mode = mode_map.get(route_mode, "walk")
+                health_prof = profile_map.get(route_profile, "healthy")
+
+                if demo_mode:
+                    st.info(
+                        "🔒 **DEMO_MODE**: OSRM routes require a network call. "
+                        "Toggle off DEMO_MODE in the sidebar to enable live route fetching. "
+                        "Cached routes (if any) will still be used automatically.",
+                        icon="📁",
+                    )
+
+                with st.spinner("🗺️ Geocoding places and fetching routes..."):
+                    try:
+                        route_results = plan_routes(
+                            from_place=route_from,
+                            to_place=route_to,
+                            departure_offset_hours=depart_offset,
+                            mode=travel_mode,
+                            health_profile=health_prof,
+                            df_forecast=df_forecast,
+                        )
+
+                        if not route_results:
+                            st.warning("No routes found between the specified places.")
+                        else:
+                            best = route_results[0]
+                            origin_ll = best["origin_latlon"]
+                            dest_ll = best["dest_latlon"]
+
+                            # Build a new Folium map with routes overlaid
+                            route_map = folium.Map(
+                                location=[
+                                    (origin_ll[0] + dest_ll[0]) / 2,
+                                    (origin_ll[1] + dest_ll[1]) / 2,
+                                ],
+                                zoom_start=13,
+                                tiles="OpenStreetMap",
+                                control_scale=True,
+                            )
+
+                            # Draw each route (safest = thicker green, others = grey)
+                            route_colors = ["#2e7d32", "#9e9e9e", "#757575"]
+                            route_weights = [6, 3, 3]
+                            for i, rr in enumerate(route_results):
+                                coords_ll = [[c[1], c[0]] for c in rr["geometry_coords"]]  # GeoJSON lon,lat → folium lat,lon
+                                color = route_colors[i] if i < len(route_colors) else "#9e9e9e"
+                                weight = route_weights[i] if i < len(route_weights) else 3
+                                label = f"Route {rr['rank']} {'(Safest ✅)' if i == 0 else ''} | Safety {rr['safety_score']}/10"
+                                folium.PolyLine(
+                                    locations=coords_ll,
+                                    color=color,
+                                    weight=weight,
+                                    opacity=0.85,
+                                    tooltip=label,
+                                ).add_to(route_map)
+
+                            # Origin & destination markers
+                            folium.Marker(
+                                location=list(origin_ll),
+                                tooltip=f"📍 {best['origin_name'][:60]}",
+                                icon=folium.Icon(color="green", icon="play"),
+                            ).add_to(route_map)
+                            folium.Marker(
+                                location=list(dest_ll),
+                                tooltip=f"🏁 {best['dest_name'][:60]}",
+                                icon=folium.Icon(color="red", icon="flag"),
+                            ).add_to(route_map)
+
+                            st_folium(route_map, width="100%", height=420, returned_objects=[], key="route_map_render")
+
+                            # Results table
+                            st.markdown("#### 📊 Route Comparison")
+                            table_rows = []
+                            for rr in route_results:
+                                table_rows.append({
+                                    "Route": f"Route {rr['rank']}{'  ✅ Safest' if rr['rank'] == 1 else ''}",
+                                    "Time (min)": rr["duration_min"],
+                                    "Distance (km)": rr["distance_km"],
+                                    "Safety Score": f"{rr['safety_score']}/10",
+                                    "Worst Air Quality Point": f"{rr['worst_locality']} (AQI {rr['worst_aqi']})",
+                                })
+                            st.dataframe(table_rows, use_container_width=True, hide_index=True)
+
+                            # Recommendation sentence
+                            best_aqi_cat_str = ""
+                            if df_forecast is not None:
+                                from src.safety import calculate_indian_aqi
+                                _, best_aqi_cat_str, _ = calculate_indian_aqi(best.get("worst_pm25", 75.0))
+
+                            st.success(
+                                f"✅ **Route {best['rank']} is safest** with Safety Score **{best['safety_score']}/10**. "
+                                f"Worst air quality at **{best['worst_locality']}** "
+                                f"(AQI {best['worst_aqi']}, {best_aqi_cat_str}). "
+                                f"Recommended for **{route_profile}** — {route_mode}."
+                            )
+
+                    except ValueError as ve:
+                        st.error(f"🗺️ Geocoding failed: {ve}", icon="❌")
+                    except RuntimeError as re:
+                        st.error(f"🛣️ Routing failed: {re}", icon="❌")
+                    except Exception as ex:
+                        st.error(f"Unexpected error: {ex}", icon="❌")
 
 # -----------------------------------------------------------------------------
 # TAB 2: 72-Hour Prediction & Uncertainty Band (Plotly)
@@ -701,7 +870,347 @@ with tab_advisor:
                 })
 
 # -----------------------------------------------------------------------------
-# TAB 5: Model Evaluation & SHAP Feature Importances
+# TAB 5: AI Air Guard — Conversational Safe-Travel Assistant
+# -----------------------------------------------------------------------------
+with tab_airguard:
+    st.subheader("🚦 AI Air Guard — Personalized Safe-Travel Advisor")
+    st.markdown(
+        "AI Air Guard guides you step-by-step to find the **safest time and route** for your journey, "
+        "using real Pehredar air quality predictions. Powered by Gemini with Groq fallback."
+    )
+
+    # ---- Session state init ----
+    if "ag_step" not in st.session_state:
+        st.session_state.ag_step = 0
+    if "ag_data" not in st.session_state:
+        st.session_state.ag_data = {}
+    if "ag_result_shown" not in st.session_state:
+        st.session_state.ag_result_shown = False
+
+    # Helper: reset state machine
+    def _ag_reset():
+        st.session_state.ag_step = 0
+        st.session_state.ag_data = {}
+        st.session_state.ag_result_shown = False
+
+    # Progress tracker
+    step_labels = ["📍 Destination", "🕐 Time", "🩺 Health", "🚶 Mode", "✅ Result"]
+    progress_pct = min(1.0, st.session_state.ag_step / 4)
+    st.progress(progress_pct, text=f"Step {min(st.session_state.ag_step + 1, 5)}/5: {step_labels[min(st.session_state.ag_step, 4)]}")
+
+    st.markdown("---")
+
+    # ---- Step 0: Destination & Origin ----
+    if st.session_state.ag_step == 0:
+        st.markdown("### 📍 Where are you going?")
+        ag_col1, ag_col2 = st.columns(2)
+        with ag_col1:
+            ag_origin = st.text_input(
+                "From (leave blank for city center):",
+                value=st.session_state.ag_data.get("origin", "Thapar University, Patiala"),
+                key="ag_origin_input",
+            )
+        with ag_col2:
+            ag_dest = st.text_input(
+                "To (destination):",
+                value=st.session_state.ag_data.get("destination", ""),
+                placeholder="e.g. Baradari Gardens, Patiala",
+                key="ag_dest_input",
+            )
+        if st.button("Next →", key="ag_btn_0"):
+            if not ag_dest.strip():
+                st.warning("Please enter a destination.")
+            else:
+                st.session_state.ag_data["origin"] = ag_origin.strip() or "Patiala Bus Stand, Patiala"
+                st.session_state.ag_data["destination"] = ag_dest.strip()
+                st.session_state.ag_step = 1
+                st.rerun()
+
+    # ---- Step 1: Departure Time ----
+    elif st.session_state.ag_step == 1:
+        st.markdown(f"### 🕐 When do you plan to leave?")
+        st.caption(f"Going to: **{st.session_state.ag_data.get('destination', '')}**")
+        ag_time = st.selectbox(
+            "Departure time:",
+            options=["Now", "+1h", "+3h", "+6h", "+12h", "+24h"],
+            index=st.session_state.ag_data.get("depart_idx", 0),
+            key="ag_time_input",
+        )
+        time_offset_map = {"Now": 0, "+1h": 1, "+3h": 3, "+6h": 6, "+12h": 12, "+24h": 24}
+        ag_col_back, ag_col_next = st.columns(2)
+        with ag_col_back:
+            if st.button("← Back", key="ag_back_1"):
+                st.session_state.ag_step = 0
+                st.rerun()
+        with ag_col_next:
+            if st.button("Next →", key="ag_btn_1"):
+                st.session_state.ag_data["departure_label"] = ag_time
+                st.session_state.ag_data["departure_offset_hours"] = time_offset_map[ag_time]
+                st.session_state.ag_step = 2
+                st.rerun()
+
+    # ---- Step 2: Health Profile ----
+    elif st.session_state.ag_step == 2:
+        st.markdown("### 🩺 Do you have any health conditions?")
+        st.caption("This helps us compute a personalised Safety Index for your journey.")
+        ag_health = st.selectbox(
+            "Health condition:",
+            options=["None (Healthy Adult)", "Children / Elderly / Pregnant", "Asthma / Heart / Lung Condition"],
+            index=0,
+            key="ag_health_input",
+        )
+        health_profile_map = {
+            "None (Healthy Adult)": "healthy",
+            "Children / Elderly / Pregnant": "vulnerable",
+            "Asthma / Heart / Lung Condition": "respiratory",
+        }
+        ag_col_back, ag_col_next = st.columns(2)
+        with ag_col_back:
+            if st.button("← Back", key="ag_back_2"):
+                st.session_state.ag_step = 1
+                st.rerun()
+        with ag_col_next:
+            if st.button("Next →", key="ag_btn_2"):
+                st.session_state.ag_data["health_label"] = ag_health
+                st.session_state.ag_data["health_profile"] = health_profile_map[ag_health]
+                st.session_state.ag_step = 3
+                st.rerun()
+
+    # ---- Step 3: Travel Mode ----
+    elif st.session_state.ag_step == 3:
+        st.markdown("### 🚶 How will you travel?")
+        ag_mode = st.selectbox(
+            "Travel mode:",
+            options=["Walk 🚶", "Bike 🚴", "Car 🚗"],
+            index=0,
+            key="ag_mode_input",
+        )
+        mode_map = {"Walk 🚶": "walk", "Bike 🚴": "bike", "Car 🚗": "car"}
+        ag_col_back, ag_col_next = st.columns(2)
+        with ag_col_back:
+            if st.button("← Back", key="ag_back_3"):
+                st.session_state.ag_step = 2
+                st.rerun()
+        with ag_col_next:
+            if st.button("🔍 Get My Air Guard Report →", key="ag_btn_3"):
+                st.session_state.ag_data["mode_label"] = ag_mode
+                st.session_state.ag_data["mode"] = mode_map[ag_mode]
+                st.session_state.ag_step = 4
+                st.rerun()
+
+    # ---- Step 4: Result ----
+    elif st.session_state.ag_step == 4:
+        ag = st.session_state.ag_data
+        st.markdown(
+            f"### ✅ Air Guard Report\n"
+            f"**{ag.get('origin', 'Patiala')}** → **{ag.get('destination', '')}** | "
+            f"{ag.get('departure_label', 'Now')} | {ag.get('mode_label', 'Walk')} | {ag.get('health_label', 'Healthy')}"
+        )
+
+        route_results = None
+        dest_forecast = None
+        error_msg = None
+
+        if not ROUTER_AVAILABLE:
+            error_msg = "Router module unavailable."
+        else:
+            with st.spinner("🗺️ Fetching routes and air quality data..."):
+                try:
+                    route_results = plan_routes(
+                        from_place=ag.get("origin", "Patiala Bus Stand, Patiala"),
+                        to_place=ag.get("destination", "Baradari, Patiala"),
+                        departure_offset_hours=ag.get("departure_offset_hours", 0),
+                        mode=ag.get("mode", "walk"),
+                        health_profile=ag.get("health_profile", "healthy"),
+                        df_forecast=df_forecast,
+                    )
+                except (ValueError, RuntimeError) as e:
+                    error_msg = str(e)
+                except Exception as e:
+                    error_msg = f"Unexpected error: {e}"
+
+        if error_msg:
+            st.error(f"⚠️ Could not fetch route: {error_msg}", icon="❌")
+            st.info("Tip: Make sure DEMO_MODE is **off** in the sidebar for live geocoding + routing.")
+        else:
+            best_route = route_results[0] if route_results else None
+
+            # Get destination hex forecast for departure + trip duration
+            depart_time = pd.Timestamp.now() + pd.Timedelta(hours=ag.get("departure_offset_hours", 0))
+            trip_duration_h = (best_route["duration_min"] / 60) if best_route else 0.5
+            arrival_time = depart_time + pd.Timedelta(hours=trip_duration_h)
+
+            # Try to find destination forecast
+            try:
+                from src.router import get_hex_forecast_for_time as _ghft
+                d_lat, d_lon, _ = geocode_place(ag.get("destination", "Baradari, Patiala"))
+                dest_forecast = _ghft(d_lat, d_lon, arrival_time, df_forecast)
+            except Exception:
+                dest_forecast = None
+
+            # Find safest time in next 24h at destination
+            safest_time_label = "N/A"
+            safest_si = 0.0
+            if dest_forecast:
+                try:
+                    # Check each hour offset 0..24
+                    best_si = -1.0
+                    best_hour = 0
+                    for h_off in range(0, 25):
+                        t_check = pd.Timestamp.now() + pd.Timedelta(hours=h_off)
+                        fc_h = _ghft(d_lat, d_lon, t_check, df_forecast)
+                        if ag.get("health_profile") == "healthy":
+                            si_h = fc_h["safety_healthy"]
+                        elif ag.get("health_profile") == "vulnerable":
+                            si_h = fc_h["safety_vulnerable"]
+                        else:
+                            si_h = fc_h["safety_respiratory"]
+                        if si_h > best_si:
+                            best_si = si_h
+                            best_hour = h_off
+                    safest_si = round(best_si, 1)
+                    if best_hour == 0:
+                        safest_time_label = "Right now"
+                    else:
+                        safest_time_label = f"In ~{best_hour}h"
+                except Exception:
+                    pass
+                except Exception:
+                    pass
+
+            # ---- Data Card ----
+            dest_name_short = ag.get("destination", "Destination")
+            health_label = ag.get("health_label", "Healthy Adult")
+            profile_key = ag.get("health_profile", "healthy")
+
+            if dest_forecast:
+                dest_aqi = dest_forecast["aqi"]
+                dest_cat = dest_forecast["aqi_category"]
+                dest_color = dest_forecast["aqi_color"]
+                dest_loc = dest_forecast["locality"]
+                if profile_key == "healthy":
+                    dest_si = dest_forecast["safety_healthy"]
+                elif profile_key == "vulnerable":
+                    dest_si = dest_forecast["safety_vulnerable"]
+                else:
+                    dest_si = dest_forecast["safety_respiratory"]
+            else:
+                dest_aqi = avg_aqi
+                dest_cat = aqi_cat
+                dest_color = aqi_color
+                dest_si = avg_safety_healthy
+                dest_loc = ag.get("destination", "Patiala")
+
+            # Metrics card
+            st.markdown("#### 📊 Air Quality at Destination (on arrival)")
+            card_c1, card_c2, card_c3, card_c4 = st.columns(4)
+            with card_c1:
+                st.metric("Destination AQI", f"{dest_aqi}", f"{dest_cat}")
+            with card_c2:
+                si_color_label = "🟢" if dest_si >= 7 else "🟡" if dest_si >= 4 else "🔴"
+                st.metric("Safety Index", f"{dest_si}/10", f"{si_color_label} {health_label[:20]}")
+            with card_c3:
+                st.metric("Safest Time (24h)", safest_time_label, f"SI {safest_si}/10")
+            with card_c4:
+                if best_route:
+                    st.metric(
+                        "Recommended Route",
+                        f"Route {best_route['rank']}",
+                        f"Safety {best_route['safety_score']}/10",
+                    )
+                else:
+                    st.metric("Recommended Route", "N/A", "")
+
+            st.markdown("---")
+
+            # ---- Build grounded prompt for LLM ----
+            route_summary_lines = []
+            if route_results:
+                for rr in route_results:
+                    route_summary_lines.append(
+                        f"  Route {rr['rank']}: {rr['distance_km']} km, {rr['duration_min']} min, "
+                        f"Safety Score {rr['safety_score']}/10, "
+                        f"worst air at {rr['worst_locality']} (AQI {rr['worst_aqi']})."
+                    )
+
+            precaution_map = {
+                "healthy": "healthy adult — wear a simple mask if AQI > 150, avoid prolonged outdoor exposure above AQI 200",
+                "vulnerable": "child/elderly/pregnant — wear N95 mask outdoors, limit time outside, avoid peak pollution hours",
+                "respiratory": "person with asthma/heart/lung condition — carry inhaler, wear N95, minimise outdoor time, keep windows closed",
+            }
+
+            grounded_prompt = f"""
+The user wants to travel from "{ag.get('origin', 'Patiala')}" to "{ag.get('destination', 'Patiala')}".
+Departure: {ag.get('departure_label', 'Now')}, Mode: {ag.get('mode_label', 'Walk')}, Health profile: {health_label}.
+
+REAL DATA FROM PEHREDAR FORECAST (do NOT invent numbers):
+- AQI at destination ({dest_loc}) on arrival: {dest_aqi} ({dest_cat}), Safety Index for {health_label}: {dest_si}/10
+- Safest time in next 24h to travel to this area: {safest_time_label} (Safety Index {safest_si}/10)
+- Current citywide PM2.5: {avg_pm25} µg/m³, AQI: {avg_aqi} ({aqi_cat})
+- Farm belt stubble smoke: {"Active — avoid outdoor exposure" if is_farm_belt_wind else "Low — favorable wind"}
+- Routes found:
+{"".join(route_summary_lines) if route_summary_lines else "  Route data unavailable."}
+
+Health precautions for this profile ({profile_key}): {precaution_map.get(profile_key, "Take general precautions.")}
+
+Please answer in the user's language (detect from their question; default English).
+Structure your reply as:
+1. Air quality at destination (AQI, category, Safety Index)
+2. Safest time window recommendation
+3. Recommended route and reason
+4. Specific health precautions for this profile (N95, inhaler, limit outdoor time if relevant)
+Keep it concise, friendly, and actionable. Use real numbers only.
+""".strip()
+
+            # Build LLM message chain
+            ag_gemini_contents = []
+            ag_openai_messages = []
+            ag_system = build_pehredar_system_prompt(
+                locality_summary=loc_summary.to_dict(orient="records") if "loc_summary" in locals() else [],
+                weather_summary={"wind_speed_10m": wind_spd, "wind_direction_10m": wind_dir, "is_stubble_wind": is_farm_belt_wind},
+                metrics_info=metrics,
+            )
+
+            if types is not None:
+                ag_gemini_contents.append(
+                    types.Content(
+                        role="user",
+                        parts=[types.Part.from_text(text=grounded_prompt)],
+                    )
+                )
+
+            ag_openai_messages = [
+                {"role": "system", "content": ag_system},
+                {"role": "user", "content": grounded_prompt},
+            ]
+
+            if not gemini_key and not groq_key:
+                st.warning("⚠️ No API key found. Add GEMINI_API_KEY or GROQ_API_KEY to .env to enable AI advice.")
+            else:
+                st.markdown("#### 💬 AI Air Guard Recommendation")
+                with st.chat_message("assistant", avatar="🚦"):
+                    stream_gen, answering_model = generate_response_with_resilience(
+                        selected_gemini_model=model_choice,
+                        gemini_key=gemini_key,
+                        groq_api_key=groq_key,
+                        formatted_gemini_contents=ag_gemini_contents,
+                        openai_messages=ag_openai_messages,
+                        temp=temperature,
+                        sys_instruction=ag_system,
+                    )
+                    if stream_gen is None:
+                        st.error("AI Air Guard is busy. Please try again in a moment.")
+                    else:
+                        st.write_stream(stream_gen)
+                        st.caption(f"Answered by {answering_model} · Data: Pehredar LightGBM Forecast")
+
+        st.markdown("---")
+        if st.button("🔄 Start Over", key="ag_reset_btn", use_container_width=True):
+            _ag_reset()
+            st.rerun()
+
+# -----------------------------------------------------------------------------
+# TAB 6: Model Evaluation & SHAP Feature Importances
 # -----------------------------------------------------------------------------
 with tab_eval:
     st.subheader("Model Validation & Explainability (Hackathon Technical Benchmark)")
