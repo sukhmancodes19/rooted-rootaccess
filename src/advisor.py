@@ -1,4 +1,4 @@
-﻿"""
+"""
 AI Health & Air Quality Advisor Module for Rooted AirSense
 Grounded LLM Advisor powered by Google Gemini Flash with Groq fallback.
 Answers public health, sensitive group, and neighborhood-specific air quality questions.

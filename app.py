@@ -1,4 +1,4 @@
-﻿import json
+import json
 import os
 from pathlib import Path
 import folium
@@ -36,10 +36,14 @@ from src.predictor import (
     train_lightgbm_models,
 )
 try:
-    from src.router import plan_routes, geocode_place
+    from src.router import plan_routes, geocode_place, get_known_localities, GeocodeFallbackNeeded
     ROUTER_AVAILABLE = True
 except ImportError:
     ROUTER_AVAILABLE = False
+    def get_known_localities():
+        return list(LOCALITIES.keys())
+    class GeocodeFallbackNeeded(Exception):
+        pass
 
 # -----------------------------------------------------------------------------
 # Page Configuration & Clean Eco Pehredar Styling
@@ -494,14 +498,29 @@ with tab_map:
         if not ROUTER_AVAILABLE:
             st.error("⚠️ Router module not available. Check src/router.py is installed correctly.")
         else:
+            known_places = get_known_localities()
+            options_with_other = known_places + ["Other…"]
+
             r_col1, r_col2 = st.columns(2)
             with r_col1:
-                route_from = st.text_input(
+                orig_default_idx = known_places.index("Thapar University") if "Thapar University" in known_places else 0
+                route_from_select = st.selectbox(
                     "📍 From (origin):",
-                    value="Thapar University, Patiala",
-                    key="route_from",
-                    help="Enter a locality name, landmark, or full address in Patiala.",
+                    options=options_with_other,
+                    index=orig_default_idx,
+                    key="route_from_select",
+                    help="Select a recognized Patiala locality or choose 'Other…' to type a custom place.",
                 )
+                if route_from_select == "Other…":
+                    route_from = st.text_input(
+                        "Enter custom origin name:",
+                        value="",
+                        placeholder="e.g. Near Thapar Gate 2",
+                        key="route_from_custom",
+                    )
+                else:
+                    route_from = route_from_select
+
                 route_depart = st.selectbox(
                     "🕐 Departure time:",
                     options=["Now", "+1h", "+3h", "+6h", "+12h", "+24h"],
@@ -516,12 +535,24 @@ with tab_map:
                 )
 
             with r_col2:
-                route_to = st.text_input(
+                dest_default_idx = known_places.index("Baradari") if "Baradari" in known_places else min(1, len(known_places)-1)
+                route_to_select = st.selectbox(
                     "🏁 To (destination):",
-                    value="Baradari Gardens, Patiala",
-                    key="route_to",
-                    help="Enter a locality name, landmark, or full address in Patiala.",
+                    options=options_with_other,
+                    index=dest_default_idx,
+                    key="route_to_select",
+                    help="Select a recognized Patiala locality or choose 'Other…' to type a custom place.",
                 )
+                if route_to_select == "Other…":
+                    route_to = st.text_input(
+                        "Enter custom destination name:",
+                        value="",
+                        placeholder="e.g. Kali Devi Temple, Patiala",
+                        key="route_to_custom",
+                    )
+                else:
+                    route_to = route_to_select
+
                 route_mode = st.selectbox(
                     "🚶 Travel mode:",
                     options=["Walk 🚶", "Bike 🚴", "Car 🚗"],
@@ -532,118 +563,128 @@ with tab_map:
             find_route_btn = st.button("🔍 Find Safest Route", key="find_route_btn", use_container_width=True)
 
             if find_route_btn:
-                # Map UI labels to internal values
-                depart_offset_map = {"Now": 0, "+1h": 1, "+3h": 3, "+6h": 6, "+12h": 12, "+24h": 24}
-                mode_map = {"Walk 🚶": "walk", "Bike 🚴": "bike", "Car 🚗": "car"}
-                profile_map = {
-                    "Healthy Adult": "healthy",
-                    "Children / Elderly / Pregnant": "vulnerable",
-                    "Asthma / Respiratory": "respiratory",
-                }
+                if not route_from.strip():
+                    st.warning("Please specify a departure origin.")
+                elif not route_to.strip():
+                    st.warning("Please specify a destination.")
+                else:
+                    # Map UI labels to internal values
+                    depart_offset_map = {"Now": 0, "+1h": 1, "+3h": 3, "+6h": 6, "+12h": 12, "+24h": 24}
+                    mode_map = {"Walk 🚶": "walk", "Bike 🚴": "bike", "Car 🚗": "car"}
+                    profile_map = {
+                        "Healthy Adult": "healthy",
+                        "Children / Elderly / Pregnant": "vulnerable",
+                        "Asthma / Respiratory": "respiratory",
+                    }
 
-                depart_offset = depart_offset_map.get(route_depart, 0)
-                travel_mode = mode_map.get(route_mode, "walk")
-                health_prof = profile_map.get(route_profile, "healthy")
+                    depart_offset = depart_offset_map.get(route_depart, 0)
+                    travel_mode = mode_map.get(route_mode, "walk")
+                    health_prof = profile_map.get(route_profile, "healthy")
 
-                if demo_mode:
-                    st.info(
-                        "🔒 **DEMO_MODE**: OSRM routes require a network call. "
-                        "Toggle off DEMO_MODE in the sidebar to enable live route fetching. "
-                        "Cached routes (if any) will still be used automatically.",
-                        icon="📁",
-                    )
-
-                with st.spinner("🗺️ Geocoding places and fetching routes..."):
-                    try:
-                        route_results = plan_routes(
-                            from_place=route_from,
-                            to_place=route_to,
-                            departure_offset_hours=depart_offset,
-                            mode=travel_mode,
-                            health_profile=health_prof,
-                            df_forecast=df_forecast,
-                        )
-
-                        if not route_results:
-                            st.warning("No routes found between the specified places.")
-                        else:
-                            best = route_results[0]
-                            origin_ll = best["origin_latlon"]
-                            dest_ll = best["dest_latlon"]
-
-                            # Build a new Folium map with routes overlaid
-                            route_map = folium.Map(
-                                location=[
-                                    (origin_ll[0] + dest_ll[0]) / 2,
-                                    (origin_ll[1] + dest_ll[1]) / 2,
-                                ],
-                                zoom_start=13,
-                                tiles="OpenStreetMap",
-                                control_scale=True,
+                    with st.spinner("🗺️ Finding safest route and scoring air quality..."):
+                        try:
+                            route_results = plan_routes(
+                                from_place=route_from,
+                                to_place=route_to,
+                                departure_offset_hours=depart_offset,
+                                mode=travel_mode,
+                                health_profile=health_prof,
+                                df_forecast=df_forecast,
                             )
 
-                            # Draw each route (safest = thicker green, others = grey)
-                            route_colors = ["#2e7d32", "#9e9e9e", "#757575"]
-                            route_weights = [6, 3, 3]
-                            for i, rr in enumerate(route_results):
-                                coords_ll = [[c[1], c[0]] for c in rr["geometry_coords"]]  # GeoJSON lon,lat → folium lat,lon
-                                color = route_colors[i] if i < len(route_colors) else "#9e9e9e"
-                                weight = route_weights[i] if i < len(route_weights) else 3
-                                label = f"Route {rr['rank']} {'(Safest ✅)' if i == 0 else ''} | Safety {rr['safety_score']}/10"
-                                folium.PolyLine(
-                                    locations=coords_ll,
-                                    color=color,
-                                    weight=weight,
-                                    opacity=0.85,
-                                    tooltip=label,
+                            if not route_results:
+                                st.warning("No routes found between the specified places.")
+                            else:
+                                best = route_results[0]
+                                origin_ll = best["origin_latlon"]
+                                dest_ll = best["dest_latlon"]
+                                has_offline_route = any(not rr.get("is_real_route", True) for rr in route_results)
+
+                                # Build a new Folium map with routes overlaid
+                                route_map = folium.Map(
+                                    location=[
+                                        (origin_ll[0] + dest_ll[0]) / 2,
+                                        (origin_ll[1] + dest_ll[1]) / 2,
+                                    ],
+                                    zoom_start=13,
+                                    tiles="OpenStreetMap",
+                                    control_scale=True,
+                                )
+
+                                # Draw each route (safest = thicker green, others = grey)
+                                route_colors = ["#2e7d32", "#9e9e9e", "#757575"]
+                                route_weights = [6, 3, 3]
+                                for i, rr in enumerate(route_results):
+                                    coords_ll = [[c[1], c[0]] for c in rr["geometry_coords"]]  # GeoJSON lon,lat → folium lat,lon
+                                    color = route_colors[i] if i < len(route_colors) else "#9e9e9e"
+                                    weight = route_weights[i] if i < len(route_weights) else 3
+                                    label_suffix = " (approximate route - offline)" if not rr.get("is_real_route", True) else ""
+                                    label = f"Route {rr['rank']} {'(Safest ✅)' if i == 0 else ''} | Safety {rr['safety_score']}/10{label_suffix}"
+                                    folium.PolyLine(
+                                        locations=coords_ll,
+                                        color=color,
+                                        weight=weight,
+                                        opacity=0.85,
+                                        tooltip=label,
+                                    ).add_to(route_map)
+
+                                # Origin & destination markers
+                                folium.Marker(
+                                    location=list(origin_ll),
+                                    tooltip=f"📍 {best['origin_name'][:60]}",
+                                    icon=folium.Icon(color="green", icon="play"),
+                                ).add_to(route_map)
+                                folium.Marker(
+                                    location=list(dest_ll),
+                                    tooltip=f"🏁 {best['dest_name'][:60]}",
+                                    icon=folium.Icon(color="red", icon="flag"),
                                 ).add_to(route_map)
 
-                            # Origin & destination markers
-                            folium.Marker(
-                                location=list(origin_ll),
-                                tooltip=f"📍 {best['origin_name'][:60]}",
-                                icon=folium.Icon(color="green", icon="play"),
-                            ).add_to(route_map)
-                            folium.Marker(
-                                location=list(dest_ll),
-                                tooltip=f"🏁 {best['dest_name'][:60]}",
-                                icon=folium.Icon(color="red", icon="flag"),
-                            ).add_to(route_map)
+                                st_folium(route_map, width="100%", height=420, returned_objects=[], key="route_map_render")
 
-                            st_folium(route_map, width="100%", height=420, returned_objects=[], key="route_map_render")
+                                if has_offline_route:
+                                    st.info("ℹ️ **Route note:** Running in offline mode using approximate corridor sampled every ~100m. Scored with live Safety Index.")
 
-                            # Results table
-                            st.markdown("#### 📊 Route Comparison")
-                            table_rows = []
-                            for rr in route_results:
-                                table_rows.append({
-                                    "Route": f"Route {rr['rank']}{'  ✅ Safest' if rr['rank'] == 1 else ''}",
-                                    "Time (min)": rr["duration_min"],
-                                    "Distance (km)": rr["distance_km"],
-                                    "Safety Score": f"{rr['safety_score']}/10",
-                                    "Worst Air Quality Point": f"{rr['worst_locality']} (AQI {rr['worst_aqi']})",
-                                })
-                            st.dataframe(table_rows, use_container_width=True, hide_index=True)
+                                # Results table
+                                st.markdown("#### 📊 Route Comparison")
+                                table_rows = []
+                                for rr in route_results:
+                                    type_label = "approximate route (offline)" if not rr.get("is_real_route", True) else "OSRM turn-by-turn"
+                                    table_rows.append({
+                                        "Route": f"Route {rr['rank']}{'  ✅ Safest' if rr['rank'] == 1 else ''}",
+                                        "Type": type_label,
+                                        "Time (min)": rr["duration_min"],
+                                        "Distance (km)": rr["distance_km"],
+                                        "Safety Score": f"{rr['safety_score']}/10",
+                                        "Worst Air Quality Point": f"{rr['worst_locality']} (AQI {rr['worst_aqi']})",
+                                    })
+                                st.dataframe(table_rows, use_container_width=True, hide_index=True)
 
-                            # Recommendation sentence
-                            best_aqi_cat_str = ""
-                            if df_forecast is not None:
-                                from src.safety import calculate_indian_aqi
-                                _, best_aqi_cat_str, _ = calculate_indian_aqi(best.get("worst_pm25", 75.0))
+                                # Recommendation sentence
+                                best_aqi_cat_str = ""
+                                if df_forecast is not None:
+                                    from src.safety import calculate_indian_aqi
+                                    _, best_aqi_cat_str, _ = calculate_indian_aqi(best.get("worst_pm25", 75.0))
 
-                            st.success(
-                                f"✅ **Route {best['rank']} is safest** with Safety Score **{best['safety_score']}/10**. "
-                                f"Worst air quality at **{best['worst_locality']}** "
-                                f"(AQI {best['worst_aqi']}, {best_aqi_cat_str}). "
-                                f"Recommended for **{route_profile}** — {route_mode}."
-                            )
+                                st.success(
+                                    f"✅ **Route {best['rank']} is safest** with Safety Score **{best['safety_score']}/10**. "
+                                    f"Worst air quality at **{best['worst_locality']}** "
+                                    f"(AQI {best['worst_aqi']}, {best_aqi_cat_str}). "
+                                    f"Recommended for **{route_profile}** — {route_mode}."
+                                )
 
-                    except ValueError as ve:
-                        st.error(f"🗺️ Geocoding failed: {ve}", icon="❌")
-                    except RuntimeError as re:
-                        st.error(f"🛣️ Routing failed: {re}", icon="❌")
-                    except Exception as ex:
-                        st.error(f"Unexpected error: {ex}", icon="❌")
+                        except (GeocodeFallbackNeeded, ValueError) as ve:
+                            st.warning(f"📍 Location not found. Please select from known Patiala localities below:")
+                            f_c1, f_c2 = st.columns(2)
+                            with f_c1:
+                                st.selectbox("Pick recognized origin:", options=known_places, key="pick_known_orig")
+                            with f_c2:
+                                st.selectbox("Pick recognized destination:", options=known_places, key="pick_known_dest")
+                            st.info("Select localities from the dropdown above and re-click 'Find Safest Route'.")
+                        except RuntimeError as re:
+                            st.error(f"🛣️ Routing note: {re}", icon="⚠️")
+                        except Exception as ex:
+                            st.error(f"Unexpected routing error: {ex}", icon="❌")
 
 # -----------------------------------------------------------------------------
 # TAB 2: 72-Hour Prediction & Uncertainty Band (Plotly)
@@ -903,25 +944,53 @@ with tab_airguard:
     # ---- Step 0: Destination & Origin ----
     if st.session_state.ag_step == 0:
         st.markdown("### 📍 Where are you going?")
+        known_places_ag = get_known_localities()
+        options_ag = known_places_ag + ["Other…"]
+
         ag_col1, ag_col2 = st.columns(2)
         with ag_col1:
-            ag_origin = st.text_input(
-                "From (leave blank for city center):",
-                value=st.session_state.ag_data.get("origin", "Thapar University, Patiala"),
-                key="ag_origin_input",
+            orig_idx_ag = known_places_ag.index("Thapar University") if "Thapar University" in known_places_ag else 0
+            ag_orig_choice = st.selectbox(
+                "From (origin):",
+                options=options_ag,
+                index=orig_idx_ag,
+                key="ag_orig_select",
+                help="Choose a recognized Patiala locality or select 'Other…' to type.",
             )
+            if ag_orig_choice == "Other…":
+                ag_origin = st.text_input(
+                    "Type custom origin:",
+                    value=st.session_state.ag_data.get("origin_custom", ""),
+                    placeholder="e.g. Near Thapar Gate 2",
+                    key="ag_origin_custom_input",
+                )
+            else:
+                ag_origin = ag_orig_choice
+
         with ag_col2:
-            ag_dest = st.text_input(
+            dest_idx_ag = known_places_ag.index("Baradari") if "Baradari" in known_places_ag else min(1, len(known_places_ag)-1)
+            ag_dest_choice = st.selectbox(
                 "To (destination):",
-                value=st.session_state.ag_data.get("destination", ""),
-                placeholder="e.g. Baradari Gardens, Patiala",
-                key="ag_dest_input",
+                options=options_ag,
+                index=dest_idx_ag,
+                key="ag_dest_select",
+                help="Choose a recognized Patiala locality or select 'Other…' to type.",
             )
+            if ag_dest_choice == "Other…":
+                ag_dest = st.text_input(
+                    "Type custom destination:",
+                    value=st.session_state.ag_data.get("dest_custom", ""),
+                    placeholder="e.g. Kali Devi Temple, Patiala",
+                    key="ag_dest_custom_input",
+                )
+            else:
+                ag_dest = ag_dest_choice
+
         if st.button("Next →", key="ag_btn_0"):
             if not ag_dest.strip():
-                st.warning("Please enter a destination.")
+                st.warning("Please enter or select a destination.")
             else:
-                st.session_state.ag_data["origin"] = ag_origin.strip() or "Patiala Bus Stand, Patiala"
+                st.session_state.ag_data["origin"] = ag_origin.strip() or "Thapar University"
                 st.session_state.ag_data["destination"] = ag_dest.strip()
                 st.session_state.ag_step = 1
                 st.rerun()
@@ -1030,8 +1099,16 @@ with tab_airguard:
                     error_msg = f"Unexpected error: {e}"
 
         if error_msg:
-            st.error(f"⚠️ Could not fetch route: {error_msg}", icon="❌")
-            st.info("Tip: Make sure DEMO_MODE is **off** in the sidebar for live geocoding + routing.")
+            st.warning(f"📍 {error_msg}")
+            st.markdown("Please select a recognized destination locality below to proceed:")
+            fallback_dest_pick = st.selectbox(
+                "Select recognized destination locality:",
+                options=get_known_localities(),
+                key="ag_fallback_dest_pick",
+            )
+            if st.button("🔄 Use this destination & Generate Report", key="ag_use_fallback_dest_btn"):
+                st.session_state.ag_data["destination"] = fallback_dest_pick
+                st.rerun()
         else:
             best_route = route_results[0] if route_results else None
 
@@ -1075,8 +1152,6 @@ with tab_airguard:
                         safest_time_label = f"In ~{best_hour}h"
                 except Exception:
                     pass
-                except Exception:
-                    pass
 
             # ---- Data Card ----
             dest_name_short = ag.get("destination", "Destination")
@@ -1113,10 +1188,14 @@ with tab_airguard:
                 st.metric("Safest Time (24h)", safest_time_label, f"SI {safest_si}/10")
             with card_c4:
                 if best_route:
+                    route_display = f"Route {best_route['rank']}"
+                    sub_label = f"Safety {best_route['safety_score']}/10"
+                    if not best_route.get("is_real_route", True):
+                        sub_label += " · offline approx"
                     st.metric(
                         "Recommended Route",
-                        f"Route {best_route['rank']}",
-                        f"Safety {best_route['safety_score']}/10",
+                        route_display,
+                        sub_label,
                     )
                 else:
                     st.metric("Recommended Route", "N/A", "")
