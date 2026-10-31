@@ -1,0 +1,107 @@
+{
+  "thapar university, patiala": {
+    "lat": 30.3545336,
+    "lon": 76.3657969,
+    "display_name": "Thapar Institute of Engineering and Technology, 32, Inter Tower Path, Patiala, Punjab, 147004, India"
+  },
+  "thapar university": {
+    "lat": 30.355,
+    "lon": 76.365,
+    "display_name": "Thapar University, Patiala"
+  },
+  "omaxe mall": {
+    "lat": 30.3497,
+    "lon": 76.3964,
+    "display_name": "Omaxe Mall, Patiala"
+  },
+  "baradari": {
+    "lat": 30.34,
+    "lon": 76.391,
+    "display_name": "Baradari, Patiala"
+  },
+  "tripuri": {
+    "lat": 30.358,
+    "lon": 76.398,
+    "display_name": "Tripuri, Patiala"
+  },
+  "leela bhawan": {
+    "lat": 30.334,
+    "lon": 76.386,
+    "display_name": "Leela Bhawan, Patiala"
+  },
+  "model town": {
+    "lat": 30.328,
+    "lon": 76.376,
+    "display_name": "Model Town, Patiala"
+  },
+  "patiala bus stand": {
+    "lat": 30.339,
+    "lon": 76.405,
+    "display_name": "Patiala Bus Stand, Patiala"
+  },
+  "omaxe": {
+    "lat": 30.3497,
+    "lon": 76.3964,
+    "display_name": "Omaxe Mall, Patiala"
+  },
+  "baradari gardens": {
+    "lat": 30.34,
+    "lon": 76.391,
+    "display_name": "Baradari, Patiala"
+  },
+  "bus stand": {
+    "lat": 30.339,
+    "lon": 76.405,
+    "display_name": "Patiala Bus Stand, Patiala"
+  },
+  "tiet": {
+    "lat": 30.355,
+    "lon": 76.365,
+    "display_name": "Thapar University, Patiala"
+  },
+  "bhupindra road": {
+    "lat": 30.342,
+    "lon": 76.382,
+    "display_name": "Bhupindra Road, Patiala"
+  },
+  "gurbax colony": {
+    "lat": 30.332,
+    "lon": 76.408,
+    "display_name": "Gurbax Colony, Patiala"
+  },
+  "nis patiala": {
+    "lat": 30.347,
+    "lon": 76.3975,
+    "display_name": "NIS Patiala, Patiala"
+  },
+  "qila mubarak": {
+    "lat": 30.336,
+    "lon": 76.394,
+    "display_name": "Qila Mubarak, Patiala"
+  },
+  "rajindra hospital": {
+    "lat": 30.3389,
+    "lon": 76.3972,
+    "display_name": "Rajindra Hospital, Patiala"
+  },
+  "rajpura road": {
+    "lat": 30.358,
+    "lon": 76.452,
+    "display_name": "Rajpura Road, Patiala"
+  },
+  "sanauri adda": {
+    "lat": 30.316,
+    "lon": 76.402,
+    "display_name": "Sanauri Adda, Patiala"
+  },
+  "sirhind road": {
+    "lat": 30.37,
+    "lon": 76.39,
+    "display_name": "Sirhind Road, Patiala"
+  },
+  "urban estate": {
+    "lat": 30.36,
+    "lon": 76.435,
+    "display_name": "Urban Estate, Patiala"
+  }
+}
