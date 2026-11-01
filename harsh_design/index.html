@@ -1,0 +1,1593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pehredar — Hyperlocal 3D Air Intelligence & 72-Hour AQI Forecasting</title>
+  <meta name="description" content="Pehredar delivers neighborhood-level AQI forecasting, live route safety assessment, and personalized health guidance powered by LightGBM machine learning.">
+
+  <!-- Fonts: Poppins (Headings & Big Numbers) and Inter (Body text & Labels) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    :root {
+      /* Colour scheme: Fresh Green */
+      --bg: #F4F8F2;
+      --card-bg: #FFFFFF;
+      --main: #1E5A32;
+      --accent: #3FA34D;
+      --text: #1B2C20;
+      --text-light: #557060;
+      --border: #D5E6D3;
+
+      /* Official CPCB AQI Colours */
+      --aqi-good: #00B050;
+      --aqi-satisfactory: #92D050;
+      --aqi-moderate: #FFFF00;
+      --aqi-poor: #FF9900;
+      --aqi-very-poor: #FF0000;
+      --aqi-severe: #C00000;
+
+      --font-heading: 'Poppins', sans-serif;
+      --font-body: 'Inter', sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 15px;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* Typography Specifications */
+    .brand-title {
+      font-family: var(--font-heading);
+      font-weight: 800;
+      font-size: clamp(32px, 4vw, 38px);
+      letter-spacing: -0.03em;
+      color: var(--main);
+      line-height: 1;
+    }
+
+    .section-heading {
+      font-family: var(--font-heading);
+      font-weight: 700;
+      font-size: clamp(22px, 2.5vw, 26px);
+      color: var(--main);
+      line-height: 1.25;
+      margin-bottom: 0.6rem;
+    }
+
+    .big-number {
+      font-family: var(--font-heading);
+      font-weight: 700;
+      font-size: 28px;
+      line-height: 1.1;
+      color: var(--main);
+    }
+
+    .small-label {
+      font-family: var(--font-body);
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-light);
+    }
+
+    .normal-text {
+      font-family: var(--font-body);
+      font-weight: 400;
+      font-size: 15px;
+      color: var(--text);
+    }
+
+    /* Navigation */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-container {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 0.9rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      text-decoration: none;
+    }
+
+    .brand-icon {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, var(--main), var(--accent));
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(30, 90, 50, 0.25);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--text-light);
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 14px;
+      transition: color 0.2s ease;
+    }
+
+    .nav-links a:hover {
+      color: var(--main);
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.65rem 1.4rem;
+      font-family: var(--font-body);
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: all 0.25s ease;
+      cursor: pointer;
+      border: 1px solid transparent;
+    }
+
+    .btn-main {
+      background: var(--main);
+      color: #FFFFFF;
+      box-shadow: 0 4px 12px rgba(30, 90, 50, 0.2);
+    }
+
+    .btn-main:hover {
+      background: #164626;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(30, 90, 50, 0.3);
+    }
+
+    .btn-secondary {
+      background: #FFFFFF;
+      color: var(--main);
+      border-color: var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg);
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
+
+    /* Header / Hero */
+    .hero {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 3.5rem 2rem 2.5rem;
+      text-align: center;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.9rem;
+      background: #E8F4E6;
+      border: 1px solid var(--border);
+      border-radius: 9999px;
+      color: var(--main);
+      margin-bottom: 1.25rem;
+    }
+
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 6px rgba(63, 163, 77, 0.6);
+    }
+
+    .hero-title {
+      font-family: var(--font-heading);
+      font-size: clamp(32px, 4.8vw, 48px);
+      font-weight: 800;
+      line-height: 1.15;
+      color: var(--main);
+      margin-bottom: 1.2rem;
+      letter-spacing: -0.02em;
+    }
+
+    .hero-title span {
+      background: linear-gradient(135deg, var(--main) 20%, var(--accent) 90%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-sub {
+      max-width: 760px;
+      margin: 0 auto 2.2rem;
+      font-size: 16px;
+      color: var(--text-light);
+      line-height: 1.65;
+    }
+
+    .hero-cta {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-bottom: 3rem;
+      flex-wrap: wrap;
+    }
+
+    /* Key Stats Cards */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.25rem;
+      max-width: 1100px;
+      margin: 0 auto 3rem;
+      text-align: left;
+    }
+
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.4rem;
+      box-shadow: 0 2px 8px rgba(30, 90, 50, 0.04);
+      transition: all 0.25s ease;
+      position: relative;
+    }
+
+    .stat-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px rgba(30, 90, 50, 0.08);
+    }
+
+    .stat-top-bar {
+      width: 28px;
+      height: 3px;
+      background: var(--accent);
+      border-radius: 2px;
+      margin-bottom: 0.75rem;
+    }
+
+    /* Live Air Map Interactive Window */
+    .interactive-window {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 20px 45px -10px rgba(30, 90, 50, 0.12);
+      overflow: hidden;
+    }
+
+    .window-header {
+      background: #FFFFFF;
+      border-bottom: 1px solid var(--border);
+      padding: 0.9rem 1.4rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 20;
+      position: relative;
+    }
+
+    .window-dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .w-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .w-dot.c1 { background: #E0E0E0; }
+    .w-dot.c2 { background: var(--accent); }
+    .w-dot.c3 { background: var(--main); }
+
+    .window-title {
+      font-family: var(--font-body);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--main);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .window-body {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      height: 620px;
+      position: relative;
+    }
+
+    @media (max-width: 960px) {
+      .window-body {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+    }
+
+    /* Map Stage (Leaflet Container) */
+    .map-stage-container {
+      position: relative;
+      background: #f8faf9;
+      height: 620px;
+      overflow: hidden;
+    }
+
+    #liveFoliumMap {
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    /* Search bar: Requirement 6 - Rounded white pill with light shadow */
+    .map-search-pill-wrap {
+      position: absolute;
+      top: 1.25rem;
+      left: 1.25rem;
+      z-index: 800;
+      width: 320px;
+    }
+
+    .map-search-pill {
+      background: #FFFFFF;
+      border: 1px solid #D5E6D3;
+      border-radius: 9999px;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12);
+      padding: 0.65rem 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      transition: all 0.25s ease;
+    }
+
+    .map-search-pill:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 6px 22px rgba(63, 163, 77, 0.25);
+    }
+
+    .map-search-pill input {
+      border: none;
+      background: transparent;
+      outline: none;
+      font-family: var(--font-body);
+      font-size: 14px;
+      color: var(--text);
+      width: 100%;
+    }
+
+    /* Labels Pane (Requirement 2): z-index 650 & pointer-events: none */
+    .leaflet-pane.leaflet-labels-pane {
+      z-index: 650 !important;
+      pointer-events: none !important;
+    }
+
+    /* Custom Leaflet Tooltip (Requirement 3) */
+    .leaflet-tooltip-clean {
+      background: #FFFFFF !important;
+      border: 1px solid var(--border) !important;
+      border-radius: 10px !important;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14) !important;
+      font-family: var(--font-body) !important;
+      color: var(--text) !important;
+      padding: 10px 14px !important;
+      font-size: 13px !important;
+      line-height: 1.5 !important;
+    }
+
+    .leaflet-tooltip-clean::before {
+      border-top-color: #FFFFFF !important;
+    }
+
+    /* Dynamic Telemetry HUD Tooltip Box */
+    .telemetry-card {
+      position: absolute;
+      bottom: 1.25rem;
+      left: 1.25rem;
+      z-index: 800;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.2rem;
+      width: 310px;
+      box-shadow: 0 10px 30px rgba(30, 90, 50, 0.14);
+      pointer-events: auto;
+    }
+
+    .telemetry-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.5rem;
+    }
+
+    .t-locality {
+      font-family: var(--font-heading);
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--main);
+    }
+
+    .aqi-pill {
+      font-family: var(--font-heading);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 0.2rem 0.6rem;
+      border-radius: 6px;
+      color: #FFFFFF;
+      display: inline-block;
+    }
+
+    .t-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+
+    /* CPCB Reference Scale Bar */
+    .aqi-scale-bar {
+      margin-top: 0.85rem;
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      text-align: center;
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .scale-cell {
+      padding: 0.35rem 0.2rem;
+    }
+
+    /* Chatbot Panel (Right Side) */
+    .chat-panel {
+      background: #FFFFFF;
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      z-index: 10;
+      height: 620px;
+    }
+
+    .chat-head {
+      padding: 1rem 1.4rem;
+      border-bottom: 1px solid var(--border);
+      background: #FAFDF9;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .chat-user-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+    }
+
+    .chat-avatar {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--main), var(--accent));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+    }
+
+    .chat-messages {
+      flex: 1;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      overflow-y: auto;
+      background: #FFFFFF;
+    }
+
+    .chat-bubble {
+      padding: 0.85rem 1.1rem;
+      border-radius: 10px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .bubble-bot {
+      background: #F4F8F2;
+      border: 1px solid var(--border);
+      color: var(--text);
+      align-self: flex-start;
+      max-width: 92%;
+    }
+
+    .bubble-user {
+      background: var(--main);
+      color: #FFFFFF;
+      align-self: flex-end;
+      max-width: 85%;
+    }
+
+    .route-card-recommendation {
+      margin-top: 0.75rem;
+      background: #FFFFFF;
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--accent);
+      border-radius: 8px;
+      padding: 0.75rem 0.9rem;
+    }
+
+    .route-rec-title {
+      font-family: var(--font-heading);
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--main);
+      margin-bottom: 0.35rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .route-rec-grid {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      color: var(--text-light);
+    }
+
+    .chat-input-bar {
+      padding: 0.85rem 1.25rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 0.5rem;
+      background: #FAFDF9;
+    }
+
+    .chat-input-bar input {
+      flex: 1;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.55rem 0.85rem;
+      font-family: var(--font-body);
+      font-size: 14px;
+      outline: none;
+      color: var(--text);
+      background: #FFFFFF;
+    }
+
+    .chat-send-btn {
+      width: 38px;
+      height: 38px;
+      background: var(--main);
+      color: #FFFFFF;
+      border-radius: 8px;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    .chat-send-btn:hover {
+      background: #164626;
+    }
+
+    /* Content Sections */
+    .section-wrap {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 5.5rem 2rem;
+    }
+
+    .section-head {
+      text-align: center;
+      max-width: 720px;
+      margin: 0 auto 3.5rem;
+    }
+
+    /* Comparison Grid */
+    .comp-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      margin-bottom: 4rem;
+    }
+
+    @media (max-width: 820px) {
+      .comp-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .comp-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 2.25rem;
+      box-shadow: 0 4px 14px rgba(30, 90, 50, 0.04);
+    }
+
+    .comp-card.active-brand {
+      border: 2px solid var(--accent);
+      box-shadow: 0 8px 24px rgba(63, 163, 77, 0.12);
+      position: relative;
+    }
+
+    .comp-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+
+    .comp-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      font-size: 15px;
+      color: var(--text);
+    }
+
+    .comp-list li i {
+      flex-shrink: 0;
+      margin-top: 3px;
+    }
+
+    /* Three Core Pillars */
+    .pillar-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.75rem;
+    }
+
+    .pillar-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 2.2rem;
+      box-shadow: 0 2px 10px rgba(30, 90, 50, 0.03);
+      transition: all 0.25s ease;
+    }
+
+    .pillar-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-3px);
+      box-shadow: 0 8px 25px rgba(30, 90, 50, 0.08);
+    }
+
+    .pillar-icon-box {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: #E8F4E6;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--main);
+      margin-bottom: 1.35rem;
+    }
+
+    /* Route Spotlight Card */
+    .route-spotlight {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 3rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      align-items: center;
+      box-shadow: 0 8px 24px rgba(30, 90, 50, 0.05);
+    }
+
+    @media (max-width: 900px) {
+      .route-spotlight {
+        grid-template-columns: 1fr;
+        padding: 2rem;
+      }
+    }
+
+    /* Tech Stack Grid */
+    .tech-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 1.25rem;
+      margin-top: 2.5rem;
+    }
+
+    .tech-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem 1rem;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+
+    .tech-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    .tech-name {
+      font-family: var(--font-heading);
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--main);
+      margin-top: 0.5rem;
+      margin-bottom: 0.2rem;
+    }
+
+    /* FAQ Accordion */
+    .faq-container {
+      max-width: 820px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .faq-item {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      transition: border-color 0.2s ease;
+    }
+
+    .faq-item.active {
+      border-color: var(--accent);
+    }
+
+    .faq-btn {
+      width: 100%;
+      text-align: left;
+      padding: 1.2rem 1.5rem;
+      background: transparent;
+      border: none;
+      color: var(--main);
+      font-family: var(--font-heading);
+      font-weight: 700;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+    }
+
+    .faq-content {
+      padding: 0 1.5rem 1.25rem;
+      color: var(--text-light);
+      font-size: 15px;
+      line-height: 1.65;
+      display: none;
+    }
+
+    .faq-item.active .faq-content {
+      display: block;
+    }
+
+    .faq-icon {
+      color: var(--accent);
+      transition: transform 0.3s ease;
+    }
+
+    .faq-item.active .faq-icon {
+      transform: rotate(180deg);
+    }
+
+    /* Bottom CTA Card */
+    .cta-card {
+      background: linear-gradient(135deg, var(--main) 0%, #154224 100%);
+      border-radius: 16px;
+      padding: 4.5rem 2.5rem;
+      text-align: center;
+      color: #FFFFFF;
+      margin-top: 3rem;
+      box-shadow: 0 15px 40px rgba(30, 90, 50, 0.2);
+    }
+
+    .cta-card .section-heading {
+      color: #FFFFFF;
+      font-size: clamp(26px, 3.5vw, 36px);
+      margin-bottom: 1rem;
+    }
+
+    .cta-card p {
+      color: #D5E6D3;
+      max-width: 650px;
+      margin: 0 auto 2.25rem;
+      font-size: 16px;
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--border);
+      background: #FFFFFF;
+      padding: 2.5rem 2rem;
+      color: var(--text-light);
+      font-size: 14px;
+    }
+
+    .footer-wrap {
+      max-width: 1240px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 640px) {
+      .footer-wrap {
+        flex-direction: column;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav>
+    <div class="nav-container">
+      <a href="#" class="brand-wrap">
+        <div class="brand-icon">
+          <i data-lucide="shield-check" style="width: 26px; height: 26px;"></i>
+        </div>
+        <span class="brand-title">Pehredar</span>
+      </a>
+
+      <ul class="nav-links">
+        <li><a href="#how-it-works">How It Works</a></li>
+        <li><a href="#live-map">Live Air Map</a></li>
+        <li><a href="#ai-guard">AI Air Guard</a></li>
+        <li><a href="#architecture">Open Stack</a></li>
+      </ul>
+
+      <div class="nav-actions">
+        <a href="#live-map" class="btn btn-secondary">
+          <i data-lucide="map" style="width: 16px; height: 16px;"></i>
+          Explore Map
+        </a>
+        <a href="#live-map" class="btn btn-main">
+          <i data-lucide="play" style="width: 16px; height: 16px;"></i>
+          Launch Demo
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <header class="hero">
+    <div class="hero-badge">
+      <span class="badge-dot"></span>
+      <span class="small-label" style="color: var(--main);">0.7 km² Hexagonal Precision</span>
+    </div>
+
+    <h1 class="hero-title">
+      Air quality isn't city-wide.<br>
+      <span>Forecast pollution where you actually breathe.</span>
+    </h1>
+
+    <p class="hero-sub">
+      Standard monitors average an entire city into one misleading number. Pehredar renders clean Esri Light Gray Canvas layers, dividing urban territory into micro-hexagons with 72-hour forward predictions.
+    </p>
+
+    <div class="hero-cta">
+      <a href="#live-map" class="btn btn-main" style="padding: 0.85rem 1.8rem; font-size: 15px;">
+        <i data-lucide="compass" style="width: 18px; height: 18px;"></i>
+        Explore Live Air Map
+      </a>
+      <a href="#ai-guard" class="btn btn-secondary" style="padding: 0.85rem 1.8rem; font-size: 15px;">
+        <i data-lucide="bot" style="width: 18px; height: 18px;"></i>
+        Consult AI Air Guard
+      </a>
+    </div>
+
+    <!-- Metrics Row -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-top-bar"></div>
+        <div class="small-label">Spatial Resolution</div>
+        <div class="big-number">0.7 <span style="font-size: 18px; color: var(--accent);">km²</span></div>
+        <div class="normal-text" style="font-size: 13px; color: var(--text-light); margin-top: 4px;">Uber H3 Hexagonal Grid</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-top-bar"></div>
+        <div class="small-label">Forward Horizon</div>
+        <div class="big-number">72 <span style="font-size: 18px; color: var(--accent);">hours</span></div>
+        <div class="normal-text" style="font-size: 13px; color: var(--text-light); margin-top: 4px;">LightGBM trained on Diwali & stubble</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-top-bar"></div>
+        <div class="small-label">SAFETY INDEX</div>
+        <div class="big-number">1–10 <span style="font-size: 18px; color: var(--accent);">Score</span></div>
+        <div class="normal-text" style="font-size: 13px; color: var(--text-light); margin-top: 4px;">Dynamic health hazard rating</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-top-bar"></div>
+        <div class="small-label">System Resilience</div>
+        <div class="big-number">99.9%</div>
+        <div class="normal-text" style="font-size: 13px; color: var(--text-light); margin-top: 4px;">Gemini-to-Groq fallback & offline mode</div>
+      </div>
+    </div>
+
+    <!-- Restyled Clean Google Maps-Style Live Air Map Window -->
+    <div class="interactive-window" id="live-map">
+      <div class="window-header">
+        <div class="window-dots">
+          <span class="w-dot c1"></span>
+          <span class="w-dot c2"></span>
+          <span class="w-dot c3"></span>
+        </div>
+        <div class="window-title">
+          <i data-lucide="map" style="width: 16px; height: 16px; color: var(--accent);"></i>
+          Live Air Map — Esri Light Gray Canvas with Labels Overlay
+        </div>
+        <div style="font-size: 12px; font-weight: 600; color: var(--main); display: flex; align-items: center; gap: 6px;">
+          <span style="width: 8px; height: 8px; border-radius: 50%; background: #00B050;"></span>
+          LIVE 72H AIR MAP
+        </div>
+      </div>
+
+      <div class="window-body">
+        <!-- Live Leaflet Map Stage (Requirement 7: height 620px) -->
+        <div class="map-stage-container">
+          <!-- Requirement 6: Search bar styled as a rounded white pill with light shadow -->
+          <div class="map-search-pill-wrap">
+            <div class="map-search-pill">
+              <i data-lucide="search" style="width: 16px; height: 16px; color: var(--accent);"></i>
+              <input type="text" id="localitySearch" placeholder="Search a locality…" autocomplete="off">
+            </div>
+          </div>
+
+          <!-- Leaflet Map Mount Point -->
+          <div id="liveFoliumMap"></div>
+
+          <!-- Telemetry HUD Card -->
+          <div class="telemetry-card">
+            <div class="telemetry-header">
+              <span class="t-locality" id="telLocality">Thapar Institute Campus</span>
+              <span class="aqi-pill" id="telPill" style="background: var(--aqi-good);">Good</span>
+            </div>
+            <div class="t-grid">
+              <div>
+                <div class="small-label">AQI (CPCB)</div>
+                <div class="big-number" id="telAqi" style="color: var(--aqi-good);">38</div>
+              </div>
+              <div>
+                <div class="small-label">SAFETY INDEX</div>
+                <div class="big-number" id="telSafety" style="color: var(--main);">9.5<span style="font-size: 14px; font-weight: 500; color: var(--text-light);">/10</span></div>
+              </div>
+            </div>
+            <div style="font-size: 13px; color: var(--text-light); border-top: 1px solid var(--border); padding-top: 0.5rem; display: flex; align-items: center; gap: 0.4rem;">
+              <i data-lucide="wind" style="width: 14px; height: 14px; color: var(--accent);"></i>
+              <span id="telDetail">PM2.5: 12 µg/m³ · Green campus canopy active</span>
+            </div>
+
+            <!-- CPCB Reference Scale -->
+            <div class="aqi-scale-bar">
+              <div class="scale-cell" style="background: #00B050; color: #fff;">0–50</div>
+              <div class="scale-cell" style="background: #92D050; color: #1B2C20;">51–100</div>
+              <div class="scale-cell" style="background: #FFFF00; color: #1B2C20;">101–200</div>
+              <div class="scale-cell" style="background: #FF9900; color: #fff;">201–300</div>
+              <div class="scale-cell" style="background: #FF0000; color: #fff;">301–400</div>
+              <div class="scale-cell" style="background: #C00000; color: #fff;">401+</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chatbot Sidebar (AI Air Guard) -->
+        <div class="chat-panel" id="ai-guard">
+          <div class="chat-head">
+            <div class="chat-user-badge">
+              <div class="chat-avatar">
+                <i data-lucide="shield-alert" style="width: 20px; height: 20px;"></i>
+              </div>
+              <div>
+                <h4 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--main);">AI Air Guard</h4>
+                <p class="small-label" style="font-size: 11px;">Health-Aware Route Advisor</p>
+              </div>
+            </div>
+            <span style="font-size: 11px; font-weight: 600; color: var(--main); background: #E8F4E6; border: 1px solid var(--border); padding: 0.2rem 0.5rem; border-radius: 4px;">
+              Gemini + Groq
+            </span>
+          </div>
+
+          <div class="chat-messages">
+            <div class="chat-bubble bubble-bot">
+              Hello! Where are you commuting today, and do you or anyone traveling with you have asthma, pregnancy, elderly parents, or young children?
+            </div>
+
+            <div class="chat-bubble bubble-user">
+              Traveling from Model Town to Passi Road at 6:30 PM with my 68-year-old father who has respiratory sensitivity.
+            </div>
+
+            <div class="chat-bubble bubble-bot">
+              <strong style="color: var(--aqi-very-poor); display: flex; align-items: center; gap: 4px; font-size: 13px;">
+                <i data-lucide="alert-octagon" style="width: 14px; height: 14px;"></i> Stubble Plume Warning (6:00–8:30 PM)
+              </strong>
+              The direct Bus Stand corridor reaches <strong>AQI 365 (Very Poor)</strong> due to evening thermal inversion. I calculated a green buffer detour via South Ring.
+
+              <div class="route-card-recommendation">
+                <div class="route-rec-title">
+                  <i data-lucide="check-circle" style="width: 15px; height: 15px; color: var(--accent);"></i>
+                  Recommended: South Canal Ring
+                </div>
+                <div class="route-rec-grid">
+                  <span>SAFETY: <strong style="color: var(--main);">8.7 / 10</strong></span>
+                  <span>AQI: <strong style="color: #00B050;">94 (Sat.)</strong></span>
+                  <span>+6 mins</span>
+                </div>
+              </div>
+
+              <div style="margin-top: 0.6rem; font-size: 13px; color: var(--text-light);">
+                Prescription: Ensure N95 mask is worn, keep car AC on internal recirculation, and delay departure past 7:45 PM if possible.
+              </div>
+            </div>
+          </div>
+
+          <div class="chat-input-bar">
+            <input type="text" placeholder="Ask about routes, timing, or health..." readonly>
+            <button class="chat-send-btn">
+              <i data-lucide="arrow-up" style="width: 18px; height: 18px;"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Section 1: Spatial Granularity (Why Pehredar) -->
+  <section class="section-wrap" id="how-it-works">
+    <div class="section-head">
+      <span class="small-label" style="color: var(--accent);">Neighborhood-Level Precision</span>
+      <h2 class="section-heading">Why Single-Station AQI Fails Every Neighborhood</h2>
+      <p class="normal-text" style="color: var(--text-light);">
+        Conventional apps take one sensor reading and stretch it over hundreds of square kilometers. Pehredar captures street-level variation.
+      </p>
+    </div>
+
+    <div class="comp-grid">
+      <!-- Legacy Approach -->
+      <div class="comp-card">
+        <span class="small-label" style="color: var(--aqi-poor);">Legacy Municipal Systems</span>
+        <h3 class="section-heading" style="font-size: 20px; margin-top: 0.5rem;">Coarse Single-Station Averaging</h3>
+        <ul class="comp-list">
+          <li>
+            <i data-lucide="x" style="color: var(--aqi-very-poor); width: 18px; height: 18px;"></i>
+            <span><strong>One city-wide number:</strong> Tells millions of citizens their air is the same, whether they are beside an open biomass fire or in a green residential park.</span>
+          </li>
+          <li>
+            <i data-lucide="x" style="color: var(--aqi-very-poor); width: 18px; height: 18px;"></i>
+            <span><strong>Lagging rear-view data:</strong> Reports what you breathed 2 to 4 hours ago instead of predicting toxic spikes in advance.</span>
+          </li>
+          <li>
+            <i data-lucide="x" style="color: var(--aqi-very-poor); width: 18px; height: 18px;"></i>
+            <span><strong>Zero route exposure awareness:</strong> Turn-by-turn navigation saves 2 minutes by steering people directly through hazardous smog bottlenecks.</span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Pehredar Approach -->
+      <div class="comp-card active-brand">
+        <span class="small-label" style="color: var(--accent);">Pehredar Architecture</span>
+        <h3 class="section-heading" style="font-size: 20px; margin-top: 0.5rem;">Hyperlocal Predictive Intelligence</h3>
+        <ul class="comp-list">
+          <li>
+            <i data-lucide="check" style="color: var(--accent); width: 18px; height: 18px;"></i>
+            <span><strong>0.7 km² Hexagonal Micro-Cells:</strong> Partitioned via Uber H3 spatial indexing for street-by-street clarity.</span>
+          </li>
+          <li>
+            <i data-lucide="check" style="color: var(--accent); width: 18px; height: 18px;"></i>
+            <span><strong>72-Hour Forward Horizon:</strong> LightGBM trained on historical crop-stubble burning and Diwali spikes across diverse meteorological conditions.</span>
+          </li>
+          <li>
+            <i data-lucide="check" style="color: var(--accent); width: 18px; height: 18px;"></i>
+            <span><strong>Exposure-Aware Path Planning:</strong> Route choices ranked by arrival time combined with total inhaled PM2.5 dosage.</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 3 Pillars Grid -->
+    <div class="pillar-grid">
+      <div class="pillar-card">
+        <div class="pillar-icon-box">
+          <i data-lucide="hexagon" style="width: 24px; height: 24px;"></i>
+        </div>
+        <h3 class="section-heading" style="font-size: 19px;">Uber H3 Spatial Tessellation</h3>
+        <p class="normal-text" style="color: var(--text-light);">
+          Discrete global grid system assigning unique spatial indices to every 0.7 km² neighborhood cell. Eliminates boundary distortion and ensures seamless geographic aggregation.
+        </p>
+      </div>
+
+      <div class="pillar-card">
+        <div class="pillar-icon-box">
+          <i data-lucide="cpu" style="width: 24px; height: 24px;"></i>
+        </div>
+        <h3 class="section-heading" style="font-size: 19px;">LightGBM Forecasting</h3>
+        <p class="normal-text" style="color: var(--text-light);">
+          Machine learning regression models trained on multi-year hourly weather datasets, surface wind trajectories, humidity, and historical autumn biomass burn cycles.
+        </p>
+      </div>
+
+      <div class="pillar-card">
+        <div class="pillar-icon-box">
+          <i data-lucide="shield" style="width: 24px; height: 24px;"></i>
+        </div>
+        <h3 class="section-heading" style="font-size: 19px;">1–10 SAFETY INDEX</h3>
+        <p class="normal-text" style="color: var(--text-light);">
+          Eliminates confusion over complex particulate micrograms. Delivers an immediate 1 to 10 actionable score guiding whether it is safe for outdoor activities.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Route Comparison Spotlight -->
+  <section class="section-wrap" style="padding-top: 0;">
+    <div class="route-spotlight">
+      <div>
+        <span class="small-label" style="color: var(--accent);">Live Route Optimization</span>
+        <h2 class="section-heading" style="font-size: 26px; margin-top: 0.5rem; margin-bottom: 1rem;">
+          Compare transit routes by air safety, not just travel time.
+        </h2>
+        <p class="normal-text" style="color: var(--text-light); margin-bottom: 1.5rem;">
+          Saving 4 minutes on your commute is not worth inhaling 300% more toxic fine particulates. Pehredar performs live path-integral calculations across local elevation zones to recommend the healthiest path.
+        </p>
+
+        <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <i data-lucide="check-circle-2" style="width: 18px; height: 18px; color: var(--accent);"></i>
+            <span class="normal-text">Identifies low-emission bypasses around industrial corridors</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <i data-lucide="check-circle-2" style="width: 18px; height: 18px; color: var(--accent);"></i>
+            <span class="normal-text">Predicts particulate surges during evening rush-hour cooling</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <i data-lucide="check-circle-2" style="width: 18px; height: 18px; color: var(--accent);"></i>
+            <span class="normal-text">Enables early municipal warnings before pollution stagnates</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Route Cards comparison box -->
+      <div style="background: #F4F8F2; border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem;">
+        <div style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--main); margin-bottom: 1rem;">
+          Transit Options Comparison
+        </div>
+
+        <!-- Option 1: Fast but toxic -->
+        <div style="background: #FFFFFF; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+            <strong style="font-size: 14px; color: var(--aqi-very-poor);">Route A: Central GT Corridor (Fastest)</strong>
+            <span class="aqi-pill" style="background: var(--aqi-very-poor); font-size: 11px;">AQI 345</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 13px; color: var(--text-light);">
+            <span>TIME: 16 mins</span>
+            <span>SAFETY INDEX: <strong>2.8 / 10</strong></span>
+            <span>Severe Exposure</span>
+          </div>
+        </div>
+
+        <!-- Option 2: Clean green bypass -->
+        <div style="background: #FFFFFF; border: 2px solid var(--accent); border-radius: 8px; padding: 1rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+            <strong style="font-size: 14px; color: var(--main);">Route B: Green Canal Bypass (Recommended)</strong>
+            <span class="aqi-pill" style="background: var(--aqi-satisfactory); color: #1B2C20; font-size: 11px;">AQI 82</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 13px; color: var(--text-light);">
+            <span>TIME: 21 mins (+5m)</span>
+            <span>SAFETY INDEX: <strong>8.9 / 10</strong></span>
+            <span>68% Less PM2.5</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Open Tech Stack -->
+  <section class="section-wrap" id="architecture" style="border-top: 1px solid var(--border);">
+    <div class="section-head">
+      <span class="small-label" style="color: var(--accent);">Open Scientific Architecture</span>
+      <h2 class="section-heading">Built with Transparent Open Data & Python</h2>
+      <p class="normal-text" style="color: var(--text-light);">
+        Pehredar is engineered with accessible scientific libraries and public meteorological streams.
+      </p>
+    </div>
+
+    <div class="tech-grid">
+      <div class="tech-card">
+        <i data-lucide="code" style="width: 24px; height: 24px; color: var(--main);"></i>
+        <div class="tech-name">Python & Streamlit</div>
+        <div class="small-label" style="font-size: 11px;">Reactive Interface</div>
+      </div>
+      <div class="tech-card">
+        <i data-lucide="layers" style="width: 24px; height: 24px; color: var(--accent);"></i>
+        <div class="tech-name">Esri Canvas</div>
+        <div class="small-label" style="font-size: 11px;">Light Gray Basemap</div>
+      </div>
+      <div class="tech-card">
+        <i data-lucide="hexagon" style="width: 24px; height: 24px; color: var(--main);"></i>
+        <div class="tech-name">Uber H3</div>
+        <div class="small-label" style="font-size: 11px;">Hex Spatial Index</div>
+      </div>
+      <div class="tech-card">
+        <i data-lucide="cpu" style="width: 24px; height: 24px; color: var(--main);"></i>
+        <div class="tech-name">LightGBM</div>
+        <div class="small-label" style="font-size: 11px;">Machine Learning</div>
+      </div>
+      <div class="tech-card">
+        <i data-lucide="activity" style="width: 24px; height: 24px; color: var(--accent);"></i>
+        <div class="tech-name">CPCB & WAQI</div>
+        <div class="small-label" style="font-size: 11px;">Official Standards</div>
+      </div>
+      <div class="tech-card">
+        <i data-lucide="bot" style="width: 24px; height: 24px; color: var(--main);"></i>
+        <div class="tech-name">Gemini + Groq</div>
+        <div class="small-label" style="font-size: 11px;">Dual-Tier Resilience</div>
+      </div>
+    </div>
+
+    <!-- FAQ Accordion -->
+    <div style="margin-top: 5rem;">
+      <div class="section-head" style="margin-bottom: 2rem;">
+        <span class="small-label" style="color: var(--accent);">Technical Details</span>
+        <h3 class="section-heading">Frequently Asked Questions</h3>
+      </div>
+
+      <div class="faq-container">
+        <div class="faq-item active">
+          <button class="faq-btn">
+            <span>How does the keyless Esri Light Gray Canvas basemap work?</span>
+            <i data-lucide="chevron-down" class="faq-icon" style="width: 20px; height: 20px;"></i>
+          </button>
+          <div class="faq-content">
+            By separating the map into two layers—a muted base layer without labels underneath the H3 hexagons, and a dedicated labels reference layer rendered in a custom pane at z-index 650 above the hexagons—street and locality names remain crisp and legible with zero watermarks while allowing hexagon hover tooltips to function seamlessly.
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-btn">
+            <span>How does LightGBM predict pollution without sensors on every block?</span>
+            <i data-lucide="chevron-down" class="faq-icon" style="width: 20px; height: 20px;"></i>
+          </button>
+          <div class="faq-content">
+            By fusing ground-truth observations from official CPCB monitoring stations with high-resolution Open-Meteo atmospheric features (boundary layer height, humidity, wind vectors, and surface pressure), the trained LightGBM model learns physical transport relationships to infer PM2.5 levels across 0.7 km² neighborhood blocks.
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-btn">
+            <span>What happens if internet connectivity drops during an inspection?</span>
+            <i data-lucide="chevron-down" class="faq-icon" style="width: 20px; height: 20px;"></i>
+          </button>
+          <div class="faq-content">
+            Pehredar includes a dual-tier conversational pipeline: Gemini provides high-precision health triage and falls back to ultra-low latency Groq inference during network congestion. If connectivity drops entirely, the built-in offline demo mode serves pre-computed spatial arrays without interruption.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Bottom CTA -->
+  <section class="section-wrap" style="padding-top: 0;">
+    <div class="cta-card">
+      <h2 class="section-heading">Breathe Smarter with Local Air Intelligence.</h2>
+      <p>
+        Stay ahead of toxic seasonal spikes with 72-hour forecasts, H3 neighborhood dispersion modeling, and personalized commute guidance.
+      </p>
+      <div style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;">
+        <a href="#live-map" class="btn" style="background: #FFFFFF; color: var(--main); padding: 0.85rem 2rem; font-size: 15px; font-weight: 700;">
+          <i data-lucide="map" style="width: 18px; height: 18px;"></i>
+          Launch Live Air Map
+        </a>
+        <a href="#ai-guard" class="btn" style="background: rgba(255, 255, 255, 0.15); color: #FFFFFF; border: 1px solid rgba(255, 255, 255, 0.4); padding: 0.85rem 2rem; font-size: 15px;">
+          <i data-lucide="bot" style="width: 18px; height: 18px;"></i>
+          Ask AI Air Guard
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-wrap">
+      <div style="display: flex; align-items: center; gap: 0.85rem;">
+        <div class="brand-icon" style="width: 32px; height: 32px; border-radius: 8px;">
+          <i data-lucide="shield-check" style="width: 18px; height: 18px;"></i>
+        </div>
+        <strong style="font-family: var(--font-heading); color: var(--main); font-size: 16px;">Pehredar</strong>
+        <span style="color: var(--text-light); font-size: 14px;">— Hyperlocal Air Pollution Intelligence</span>
+      </div>
+
+      <div style="font-size: 13px; color: var(--text-light);">
+        Engineered with Python · Streamlit · Folium · Esri Canvas · LightGBM · CPCB Standards
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts: Leaflet Map with Esri Light Gray Canvas, Hexagons & Labels Pane -->
+  <script>
+    // Initialize Lucide Icons
+    lucide.createIcons();
+
+    // FAQ Accordion
+    document.querySelectorAll('.faq-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const item = btn.parentElement;
+        const isActive = item.classList.contains('active');
+        document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('active'));
+        if (!isActive) item.classList.add('active');
+      });
+    });
+
+    // --- REQUIREMENT 4: DEFAULT VIEW ---
+    // Centre on Thapar Institute, Patiala (approx. 30.3564, 76.3647) at zoom 15
+    const THAPAR_COORDS = [30.3564, 76.3647];
+    const map = L.map('liveFoliumMap', {
+      center: THAPAR_COORDS,
+      zoom: 15,
+      maxZoom: 16,
+      zoomControl: true
+    });
+
+    // Move zoom controls to top-right
+    map.zoomControl.setPosition('topright');
+
+    // --- REQUIREMENT 1: BASEMAP (Esri Light Gray Canvas Base) ---
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors',
+      maxZoom: 16
+    }).addTo(map);
+
+    // --- REQUIREMENT 2: LABELS ON TOP (Esri Light Gray Reference in z-index 650 pane) ---
+    // Create custom Folium / Leaflet map pane named "labels" with z-index 650 and pointer-events: none
+    const labelsPane = map.createPane('labels');
+    labelsPane.style.zIndex = 650;
+    labelsPane.style.pointerEvents = 'none';
+
+    // Add labels layer in that pane so it stays above the hexagons and hover still works
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Esri',
+      maxZoom: 16,
+      pane: 'labels'
+    }).addTo(map);
+
+    // Dynamic Telemetry Elements
+    const telLocality = document.getElementById('telLocality');
+    const telPill = document.getElementById('telPill');
+    const telAqi = document.getElementById('telAqi');
+    const telSafety = document.getElementById('telSafety');
+    const telDetail = document.getElementById('telDetail');
+
+    function updateTelemetry(data) {
+      telLocality.innerText = data.locality;
+      telPill.innerText = data.aqi_category;
+      telPill.style.background = data.color;
+      telPill.style.color = (data.color === '#FFFF00' || data.color === '#92D050') ? '#1B2C20' : '#FFFFFF';
+      telAqi.innerText = data.aqi;
+      telAqi.style.color = data.color;
+      telSafety.innerHTML = `${data.safety_index}<span style="font-size: 14px; font-weight: 500; color: var(--text-light);">/10</span>`;
+      telDetail.innerText = `PM2.5: ${data.pm25} µg/m³ · ${data.desc}`;
+    }
+
+    // Helper: Generate H3-style regular hexagon coordinates around a center point
+    function createHexPolygon(lat, lon, radiusKm = 0.48) {
+      const coords = [];
+      const dLat = radiusKm / 110.574;
+      const dLon = radiusKm / (111.320 * Math.cos(lat * Math.PI / 180));
+      for (let i = 0; i < 6; i++) {
+        const angle = (i * 60) * Math.PI / 180;
+        coords.push([
+          lat + dLat * Math.sin(angle),
+          lon + dLon * Math.cos(angle)
+        ]);
+      }
+      return coords;
+    }
+
+    // Localities with CPCB colours, Safety Index, PM2.5 and AQI values
+    const localities = [
+      { locality: "Thapar Institute Campus", lat: 30.3564, lon: 76.3647, safety_index: "9.5", pm25: 12, aqi: 38, aqi_category: "Good", color: "#00B050", desc: "Green foliage air buffer active" },
+      { locality: "Bhadson Road Sector", lat: 30.3630, lon: 76.3620, safety_index: "8.8", pm25: 28, aqi: 65, aqi_category: "Satisfactory", color: "#92D050", desc: "Clean residential corridor" },
+      { locality: "Prem Nagar", lat: 30.3580, lon: 76.3760, safety_index: "7.9", pm25: 42, aqi: 92, aqi_category: "Satisfactory", color: "#92D050", desc: "Moderate traffic flow" },
+      { locality: "Model Town Chowk", lat: 30.3480, lon: 76.3700, safety_index: "5.6", pm25: 86, aqi: 168, aqi_category: "Moderate", color: "#FFFF00", desc: "Peak hour vehicle congestion" },
+      { locality: "Leela Bhawan Commercial", lat: 30.3490, lon: 76.3840, safety_index: "5.1", pm25: 98, aqi: 182, aqi_category: "Moderate", color: "#FFFF00", desc: "Commercial market idling" },
+      { locality: "Baradari Gardens", lat: 30.3410, lon: 76.3810, safety_index: "9.2", pm25: 18, aqi: 48, aqi_category: "Good", color: "#00B050", desc: "Historic park canopy buffer" },
+      { locality: "Patiala Railway Station", lat: 30.3340, lon: 76.3920, safety_index: "4.2", pm25: 135, aqi: 246, aqi_category: "Poor", color: "#FF9900", desc: "Diesel locomotive & transit hub" },
+      { locality: "Central Bus Stand", lat: 30.3320, lon: 76.4050, safety_index: "3.8", pm25: 154, aqi: 275, aqi_category: "Poor", color: "#FF9900", desc: "Heavy bus idling corridor" },
+      { locality: "Passi Road Industrial Area", lat: 30.3210, lon: 76.4000, safety_index: "2.3", pm25: 224, aqi: 368, aqi_category: "Very Poor", color: "#FF0000", desc: "Industrial smoke dispersion trap" },
+      { locality: "Focal Point Industrial", lat: 30.3120, lon: 76.4150, safety_index: "1.4", pm25: 310, aqi: 425, aqi_category: "Severe", color: "#C00000", desc: "Heavy metallurgical boiler emissions" },
+      { locality: "Urban Estate Phase II", lat: 30.3660, lon: 76.4250, safety_index: "8.4", pm25: 32, aqi: 78, aqi_category: "Satisfactory", color: "#92D050", desc: "Open suburban sector" }
+    ];
+
+    // --- REQUIREMENT 3: HEXAGONS STYLING & HOVER HIGHLIGHT ---
+    // fill opacity about 0.35 so roads/parks show through, thin white outline (weight 0.6)
+    // hover highlight: fill opacity 0.6, outline #1B4D22
+    localities.forEach(item => {
+      const hexPoints = createHexPolygon(item.lat, item.lon, 0.44);
+
+      const hexPolygon = L.polygon(hexPoints, {
+        fillColor: item.color,
+        fillOpacity: 0.35,
+        color: '#FFFFFF',
+        weight: 0.6
+      }).addTo(map);
+
+      // Tooltip: locality, Safety Index, PM2.5, AQI + category
+      const tooltipContent = `
+        <div style="font-family: 'Inter', sans-serif; font-size: 13px; line-height: 1.5;">
+          <div style="font-family: 'Poppins', sans-serif; font-weight: 700; color: #1E5A32; font-size: 14px; margin-bottom: 2px;">
+            ${item.locality}
+          </div>
+          <div>Safety Index: <strong>${item.safety_index} / 10</strong></div>
+          <div>PM2.5: <strong>${item.pm25} µg/m³</strong></div>
+          <div>AQI: <strong style="color: ${item.color};">${item.aqi} (${item.aqi_category})</strong></div>
+        </div>
+      `;
+
+      hexPolygon.bindTooltip(tooltipContent, {
+        sticky: true,
+        className: 'leaflet-tooltip-clean'
+      });
+
+      // Hover highlight: fill opacity 0.6, outline #1B4D22
+      hexPolygon.on('mouseover', function(e) {
+        this.setStyle({
+          fillOpacity: 0.60,
+          color: '#1B4D22',
+          weight: 2.0
+        });
+        updateTelemetry(item);
+      });
+
+      hexPolygon.on('mouseout', function(e) {
+        this.setStyle({
+          fillOpacity: 0.35,
+          color: '#FFFFFF',
+          weight: 0.6
+        });
+      });
+
+      hexPolygon.on('click', function(e) {
+        flyToLocation(item.lat, item.lon, item.locality);
+      });
+    });
+
+    // --- REQUIREMENT 5: "YOU ARE HERE" BLUE DOT MARKER ---
+    // Filled #1A73E8 circle with a white border and a soft blue halo
+    let haloCircle = null;
+    let solidDot = null;
+
+    function renderBlueDot(lat, lon) {
+      if (haloCircle) map.removeLayer(haloCircle);
+      if (solidDot) map.removeLayer(solidDot);
+
+      // Soft blue halo outer circle
+      haloCircle = L.circleMarker([lat, lon], {
+        radius: 14,
+        fillColor: '#1A73E8',
+        fillOpacity: 0.22,
+        color: '#1A73E8',
+        weight: 0,
+        interactive: false
+      }).addTo(map);
+
+      // Solid #1A73E8 blue dot with crisp white border
+      solidDot = L.circleMarker([lat, lon], {
+        radius: 7,
+        fillColor: '#1A73E8',
+        fillOpacity: 1.0,
+        color: '#FFFFFF',
+        weight: 2.5
+      }).addTo(map);
+
+      solidDot.bindTooltip("You are here", { direction: 'top', offset: [0, -6] });
+    }
+
+    // Default position at Thapar location with no search
+    renderBlueDot(THAPAR_COORDS[0], THAPAR_COORDS[1]);
+
+    // Fly to location helper
+    function flyToLocation(lat, lon, name) {
+      map.flyTo([lat, lon], 16, {
+        duration: 1.2,
+        easeLinearity: 0.25
+      });
+      renderBlueDot(lat, lon);
+      const found = localities.find(l => l.locality.toLowerCase().includes(name.toLowerCase()));
+      if (found) updateTelemetry(found);
+    }
+
+    // --- REQUIREMENT 6: SEARCH INPUT INTERACTION ---
+    const searchInput = document.getElementById('localitySearch');
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const query = searchInput.value.trim().toLowerCase();
+        if (!query) return;
+
+        const match = localities.find(l => l.locality.toLowerCase().includes(query));
+        if (match) {
+          flyToLocation(match.lat, match.lon, match.locality);
+        } else {
+          // If searching general street, center gracefully
+          map.flyTo([30.3450, 76.3800], 15);
+          renderBlueDot(30.3450, 76.3800);
+        }
+      }
+    });
+
+    // Invalidate map size to ensure seamless render
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 300);
+  </script>
+</body>
+</html>

@@ -55,86 +55,321 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Custom Styling
+# Custom Styling with harsh_design tokens
 st.markdown(
     """
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800;900&display=swap" rel="stylesheet">
+
     <style>
+    :root {
+        --bg: #F4F8F2;
+        --card-bg: #FFFFFF;
+        --main: #1E5A32;
+        --accent: #3FA34D;
+        --text: #1B2C20;
+        --text-light: #557060;
+        --border: #D5E6D3;
+        --font-heading: 'Poppins', sans-serif;
+        --font-body: 'Inter', sans-serif;
+    }
+
+    /* Main background & base typography */
     .stApp {
-        background: linear-gradient(180deg, #f8fbf8 0%, #edf7ed 100%);
-        color: #1b3320;
+        background-color: var(--bg) !important;
+        color: var(--text) !important;
+        font-family: var(--font-body) !important;
     }
-    .pehredar-header {
-        background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 60%, #388e3c 100%);
-        border-radius: 16px;
-        padding: 1.5rem 2rem;
-        color: #ffffff;
-        box-shadow: 0 4px 18px rgba(27, 94, 32, 0.22);
-        margin-bottom: 1.2rem;
+
+    h1, h2, h3, h4, h5, h6 {
+        font-family: var(--font-heading) !important;
+        color: var(--main) !important;
+        letter-spacing: -0.02em !important;
     }
-    .pehredar-header h1 {
-        margin: 0;
-        font-size: 2.3rem;
-        font-weight: 800;
-        color: #ffffff !important;
-        display: flex;
+
+    p, span, div, label, li {
+        font-family: var(--font-body);
+    }
+
+    /* Hero Header */
+    .hero-container {
+        text-align: center;
+        padding: 1.25rem 1rem 0.85rem;
+        max-width: 960px;
+        margin: 0 auto 1.25rem auto;
+    }
+
+    .hero-badge {
+        display: inline-flex;
         align-items: center;
-        gap: 0.6rem;
-    }
-    .pehredar-header p {
-        margin: 0.35rem 0 0 0;
-        color: #dcedc8;
-        font-size: 1.02rem;
-    }
-    .metric-card {
-        background: #ffffff;
-        border-radius: 12px;
-        padding: 1rem 1.2rem;
-        border: 1px solid #dcedc8;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
-    }
-    .metric-title {
-        font-size: 0.82rem;
-        color: #558b2f;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    .metric-value {
-        font-size: 1.75rem;
-        font-weight: 700;
-        color: #1b3320;
-        margin-top: 0.15rem;
-    }
-    .stChatMessage {
-        background-color: #ffffff;
-        border-radius: 12px;
-        border: 1px solid #dcedc8;
-        padding: 0.9rem 1.1rem;
+        gap: 0.5rem;
+        padding: 0.35rem 0.95rem;
+        background: #E8F4E6;
+        border: 1px solid var(--border);
+        border-radius: 9999px;
+        color: var(--main);
         margin-bottom: 0.75rem;
     }
-    .stChatMessage:has([data-testid="chatAvatarIcon-user"]) {
-        background-color: #f1f8e9;
-        border: 1px solid #c5e1a5;
+
+    .badge-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 6px rgba(63, 163, 77, 0.6);
+        display: inline-block;
     }
-    .stChatMessage:has([data-testid="chatAvatarIcon-assistant"]) {
-        background-color: #ffffff;
-        border-left: 4px solid #2e7d32;
+
+    .hero-title {
+        font-family: var(--font-heading);
+        font-size: clamp(30px, 4.2vw, 44px);
+        font-weight: 800;
+        line-height: 1.15;
+        color: var(--main);
+        margin-bottom: 0.5rem;
+        letter-spacing: -0.03em;
     }
-    .stChatMessage [data-testid="stCaptionContainer"] {
-        color: #558b2f !important;
-        font-size: 0.78rem;
-        margin-top: 0.3rem;
+
+    .hero-title span {
+        background: linear-gradient(135deg, var(--main) 20%, var(--accent) 90%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
     }
+
+    .hero-sub {
+        max-width: 760px;
+        margin: 0 auto;
+        font-size: 15px;
+        color: var(--text-light);
+        line-height: 1.6;
+    }
+
+    /* Cards matching harsh_design .stat-card */
+    .stat-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.15rem 1.35rem;
+        box-shadow: 0 2px 8px rgba(30, 90, 50, 0.04);
+        transition: all 0.25s ease;
+        height: 100%;
+    }
+
+    .stat-card:hover {
+        border-color: var(--accent);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 18px rgba(30, 90, 50, 0.08);
+    }
+
+    .stat-top-bar {
+        width: 28px;
+        height: 3px;
+        background: var(--accent);
+        border-radius: 2px;
+        margin-bottom: 0.65rem;
+    }
+
+    .small-label {
+        font-family: var(--font-body);
+        font-weight: 600;
+        font-size: 11.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-light);
+    }
+
+    .big-number {
+        font-family: var(--font-heading);
+        font-weight: 700;
+        font-size: 26px;
+        line-height: 1.15;
+        color: var(--main);
+        margin: 0.2rem 0;
+    }
+
+    .aqi-pill {
+        font-family: var(--font-heading);
+        font-size: 11px;
+        font-weight: 700;
+        padding: 0.18rem 0.55rem;
+        border-radius: 6px;
+        color: #FFFFFF;
+        display: inline-block;
+    }
+
+    /* Buttons */
     .stButton > button {
-        background-color: #2e7d32;
-        color: white;
-        border-radius: 8px;
-        border: none;
-        font-weight: 500;
+        font-family: var(--font-body) !important;
+        font-size: 14px !important;
+        font-weight: 600 !important;
+        border-radius: 8px !important;
+        background: var(--main) !important;
+        color: #FFFFFF !important;
+        border: 1px solid transparent !important;
+        box-shadow: 0 4px 12px rgba(30, 90, 50, 0.18) !important;
+        transition: all 0.25s ease !important;
+        padding: 0.6rem 1.3rem !important;
     }
+
     .stButton > button:hover {
-        background-color: #1b5e20;
-        color: white;
+        background: #164626 !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 6px 16px rgba(30, 90, 50, 0.28) !important;
+        color: #FFFFFF !important;
+    }
+
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 0.5rem;
+        background: #FFFFFF;
+        padding: 0.5rem 0.75rem;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        box-shadow: 0 2px 8px rgba(30, 90, 50, 0.03);
+        margin-bottom: 1.25rem;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        font-family: var(--font-heading) !important;
+        font-weight: 600 !important;
+        font-size: 14px !important;
+        color: var(--text-light) !important;
+        border-radius: 8px !important;
+        padding: 0.55rem 1rem !important;
+        border: none !important;
+        background: transparent !important;
+        transition: all 0.2s ease !important;
+    }
+
+    .stTabs [aria-selected="true"] {
+        color: #FFFFFF !important;
+        background: var(--main) !important;
+        box-shadow: 0 4px 12px rgba(30, 90, 50, 0.18) !important;
+    }
+
+    .stTabs [data-baseweb="tab-highlight"],
+    .stTabs [data-baseweb="tab-border"] {
+        display: none !important;
+    }
+
+    /* Chat Messages */
+    .stChatMessage {
+        background-color: #FFFFFF !important;
+        border-radius: 12px !important;
+        border: 1px solid var(--border) !important;
+        padding: 0.95rem 1.2rem !important;
+        margin-bottom: 0.85rem !important;
+        box-shadow: 0 2px 6px rgba(30, 90, 50, 0.03) !important;
+    }
+
+    .stChatMessage:has([data-testid="chatAvatarIcon-user"]) {
+        background-color: #F4F8F2 !important;
+        border: 1px solid var(--border) !important;
+    }
+
+    .stChatMessage:has([data-testid="chatAvatarIcon-assistant"]) {
+        background-color: #FFFFFF !important;
+        border-left: 4px solid var(--accent) !important;
+    }
+
+    .stChatMessage [data-testid="stCaptionContainer"] {
+        color: var(--text-light) !important;
+        font-size: 0.78rem !important;
+        margin-top: 0.35rem !important;
+    }
+
+    /* Sidebar */
+    section[data-testid="stSidebar"] {
+        background-color: #FAFDF9 !important;
+        border-right: 1px solid var(--border) !important;
+    }
+
+    /* Form Controls */
+    .stSelectbox label, .stSlider label, .stTextInput label {
+        font-family: var(--font-body) !important;
+        font-weight: 600 !important;
+        font-size: 13px !important;
+        color: var(--text) !important;
+    }
+
+    div[data-baseweb="select"] > div {
+        border-radius: 8px !important;
+        border: 1px solid var(--border) !important;
+        background: #FFFFFF !important;
+    }
+
+    div[data-baseweb="select"]:focus-within > div {
+        border-color: var(--accent) !important;
+        box-shadow: 0 0 0 2px rgba(63, 163, 77, 0.2) !important;
+    }
+
+    .stTextInput > div > div > input {
+        border-radius: 8px !important;
+        border: 1px solid var(--border) !important;
+        font-family: var(--font-body) !important;
+        font-size: 14px !important;
+        color: var(--text) !important;
+        background: #FFFFFF !important;
+    }
+
+    /* Metric elements */
+    div[data-testid="stMetric"] {
+        background: #FFFFFF !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 12px !important;
+        padding: 1rem 1.2rem !important;
+        box-shadow: 0 2px 8px rgba(30, 90, 50, 0.04) !important;
+    }
+
+    div[data-testid="stMetricLabel"] {
+        font-family: var(--font-body) !important;
+        font-weight: 600 !important;
+        font-size: 12px !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.05em !important;
+        color: var(--text-light) !important;
+    }
+
+    div[data-testid="stMetricValue"] {
+        font-family: var(--font-heading) !important;
+        font-weight: 700 !important;
+        font-size: 24px !important;
+        color: var(--main) !important;
+    }
+
+    /* Window card header */
+    .window-header {
+        background: #FFFFFF;
+        border: 1px solid var(--border);
+        border-bottom: none;
+        border-radius: 12px 12px 0 0;
+        padding: 0.75rem 1.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .window-dots {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+    }
+
+    .w-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+    }
+    .w-dot.c1 { background: #E0E0E0; }
+    .w-dot.c2 { background: var(--accent); }
+    .w-dot.c3 { background: var(--main); }
+
+    .window-title {
+        font-family: var(--font-body);
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--main);
     }
     </style>
     """,
@@ -248,9 +483,18 @@ except Exception as e:
 # -----------------------------------------------------------------------------
 st.markdown(
     """
-    <div class="pehredar-header">
-        <h1>Pehredar 🛡️</h1>
-        <p>AI-Powered Neighbourhood-Level Air Pollution Prediction System for Patiala, Punjab</p>
+    <div class="hero-container">
+        <div class="hero-badge">
+            <span class="badge-dot"></span>
+            <span class="small-label" style="color: var(--main); font-size: 11px;">Patiala Hyperlocal Air Intelligence · LightGBM Powered</span>
+        </div>
+        <h1 class="hero-title">
+            Pehredar <span>🛡️</span>
+        </h1>
+        <p class="hero-sub">
+            Hyperlocal 3D air quality intelligence and 72-hour AQI forecasting across Patiala's neighbourhoods. 
+            Track exposure, discover safer transit corridors, and safeguard vulnerable groups in real time.
+        </p>
     </div>
     """,
     unsafe_allow_html=True,
@@ -278,38 +522,50 @@ col1, col2, col3, col4 = st.columns(4)
 with col1:
     st.markdown(
         f"""
-        <div class="metric-card">
-            <div class="metric-title">Patiala City Avg AQI (t+1h)</div>
-            <div class="metric-value" style="color: {aqi_color};">AQI {avg_aqi}</div>
-            <div style="font-size: 0.85rem; color: #555;">PM2.5: {avg_pm25} µg/m³ • <b>{aqi_cat}</b></div>
+        <div class="stat-card">
+            <div class="stat-top-bar" style="background: {aqi_color};"></div>
+            <div class="small-label">Patiala Avg AQI (t+1h)</div>
+            <div class="big-number" style="color: {aqi_color};">AQI {avg_aqi}</div>
+            <p style="font-size: 13px; color: var(--text-light); margin-top: 0.25rem;">
+                PM2.5: <strong style="color: var(--text);">{avg_pm25} µg/m³</strong> · <span class="aqi-pill" style="background: {aqi_color}; font-size: 10px; padding: 2px 6px;">{aqi_cat}</span>
+            </p>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
 with col2:
+    safe_color = '#00B050' if avg_safety_healthy >= 7 else '#FF9900' if avg_safety_healthy >= 4 else '#C00000'
     st.markdown(
         f"""
-        <div class="metric-card">
-            <div class="metric-title">Safety Index (General Public)</div>
-            <div class="metric-value" style="color: {'#2e7d32' if avg_safety_healthy >= 7 else '#f57c00' if avg_safety_healthy >= 4 else '#d32f2f'};">
-                {avg_safety_healthy} / 10
+        <div class="stat-card">
+            <div class="stat-top-bar" style="background: {safe_color};"></div>
+            <div class="small-label">Safety Index (General Public)</div>
+            <div class="big-number" style="color: {safe_color};">
+                {avg_safety_healthy} <span style="font-size: 16px; font-weight: 500; color: var(--text-light);">/ 10</span>
             </div>
-            <div style="font-size: 0.85rem; color: #555;">Asthma / Vulnerable: <b>{avg_safety_asthma} / 10</b></div>
+            <p style="font-size: 13px; color: var(--text-light); margin-top: 0.25rem;">
+                Asthma / Vulnerable: <strong style="color: var(--text);">{avg_safety_asthma} / 10</strong>
+            </p>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
 with col3:
-    stubble_badge = "🔴 Active West Smoke Corridor" if is_farm_belt_wind else "🟢 Favorable Wind Vector"
-    stubble_color = "#d32f2f" if is_farm_belt_wind else "#2e7d32"
+    stubble_color = "#C00000" if is_farm_belt_wind else "#00B050"
+    stubble_badge = "🔴 Active Smoke Corridor" if is_farm_belt_wind else "🟢 Favorable Wind Vector"
     st.markdown(
         f"""
-        <div class="metric-card">
-            <div class="metric-title">Malwa Farm Belt Trajectory</div>
-            <div class="metric-value" style="color: {stubble_color}; font-size: 1.45rem;">{stubble_badge}</div>
-            <div style="font-size: 0.85rem; color: #555;">Wind: {int(wind_dir)}° ({wind_spd} km/h)</div>
+        <div class="stat-card">
+            <div class="stat-top-bar" style="background: {stubble_color};"></div>
+            <div class="small-label">Malwa Farm Belt Trajectory</div>
+            <div class="big-number" style="color: {stubble_color}; font-size: 17px; padding-top: 5px;">
+                {stubble_badge}
+            </div>
+            <p style="font-size: 13px; color: var(--text-light); margin-top: 0.25rem;">
+                Wind: <strong style="color: var(--text);">{int(wind_dir)}° ({wind_spd} km/h)</strong>
+            </p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -320,10 +576,13 @@ with col4:
     base_mae = metrics.get("baseline_mae", 18.0)
     st.markdown(
         f"""
-        <div class="metric-card">
-            <div class="metric-title">LightGBM Model Accuracy</div>
-            <div class="metric-value" style="color: #1b5e20;">MAE {model_mae} µg/m³</div>
-            <div style="font-size: 0.85rem; color: #555;">Persistence Baseline: {base_mae} µg/m³</div>
+        <div class="stat-card">
+            <div class="stat-top-bar" style="background: var(--accent);"></div>
+            <div class="small-label">LightGBM Accuracy</div>
+            <div class="big-number" style="color: var(--main);">MAE {model_mae} <span style="font-size: 14px; font-weight: 500; color: var(--text-light);">µg/m³</span></div>
+            <p style="font-size: 13px; color: var(--text-light); margin-top: 0.25rem;">
+                Persistence Baseline: <strong style="color: var(--text);">{base_mae} µg/m³</strong>
+            </p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -396,11 +655,26 @@ with tab_map:
     map_col, side_col = st.columns([2.0, 1.0])
 
     with map_col:
+        st.markdown(
+            f"""
+            <div class="window-header">
+                <div class="window-dots">
+                    <div class="w-dot c1"></div>
+                    <div class="w-dot c2"></div>
+                    <div class="w-dot c3"></div>
+                </div>
+                <div class="window-title">📍 Patiala Microzone H3 Mesh · Resolution 8 (~0.7 km²)</div>
+                <div style="font-size: 12px; font-weight: 600; color: #557060;">t+{selected_horizon}h Horizon</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
         # Build Folium map centered on Patiala (30.34, 76.39)
         m = folium.Map(
             location=[30.342, 76.395],
             zoom_start=12,
-            tiles="OpenStreetMap",
+            tiles="CartoDB positron",
             control_scale=True,
         )
 
@@ -418,25 +692,29 @@ with tab_map:
             cat_val = row["aqi_category"]
             safe_val = row[safety_col]
 
-            # Highlight selected locality if filtered
+            # In harsh_design: fill opacity about 0.35 so roads/parks show through, thin white outline (weight 0.6)
             if target_locality_focus != "All Localities" and loc_name != target_locality_focus:
-                fill_opacity = 0.15
-                weight = 0.5
+                fill_opacity = 0.12
+                weight = 0.4
             else:
-                fill_opacity = 0.65
-                weight = 1.6
+                fill_opacity = 0.38
+                weight = 0.6
 
+            safe_val_color = '#00B050' if safe_val >= 7 else '#FF9900' if safe_val >= 4 else '#C00000'
             tooltip_html = f"""
-            <b>{loc_name}</b><br>
-            Hex: <code>{h_id[-6:]}</code><br>
-            PM2.5: <b>{pm_val} µg/m³</b><br>
-            NAQI: <b>{aqi_val} ({cat_val})</b><br>
-            Safety: <b>{safe_val}/10</b>
+            <div style="font-family: 'Inter', sans-serif; font-size: 13px; line-height: 1.5; padding: 2px 4px;">
+              <div style="font-family: 'Poppins', sans-serif; font-weight: 700; color: #1E5A32; font-size: 14px; margin-bottom: 2px;">
+                {loc_name} <span style="font-size: 11px; font-weight: 500; color: #557060;">({h_id[-6:]})</span>
+              </div>
+              <div style="color: #1B2C20;">Safety Index: <strong style="color: {safe_val_color};">{safe_val} / 10</strong></div>
+              <div style="color: #1B2C20;">PM2.5: <strong>{pm_val} µg/m³</strong></div>
+              <div style="color: #1B2C20;">NAQI: <strong style="color: {color};">{aqi_val} ({cat_val})</strong></div>
+            </div>
             """
 
             folium.Polygon(
                 locations=coords,
-                color=color,
+                color="#FFFFFF",
                 fill=True,
                 fill_color=color,
                 fill_opacity=fill_opacity,
@@ -449,10 +727,11 @@ with tab_map:
             if target_locality_focus == "All Localities" or loc_name == target_locality_focus:
                 folium.CircleMarker(
                     location=[l_lat, l_lon],
-                    radius=4,
-                    color="#1b5e20",
+                    radius=5,
+                    color="#FFFFFF",
+                    weight=2.0,
                     fill=True,
-                    fill_color="#ffffff",
+                    fill_color="#1E5A32",
                     fill_opacity=1.0,
                     tooltip=f"📍 {loc_name}",
                 ).add_to(m)
@@ -478,9 +757,14 @@ with tab_map:
         for _, r in loc_summary.iterrows():
             st.markdown(
                 f"""
-                <div style="background: #ffffff; border-radius: 8px; border-left: 4px solid {r['aqi_color']}; padding: 0.5rem 0.8rem; margin-bottom: 0.4rem; font-size: 0.88rem;">
-                    <b>{r['locality']}</b>: AQI {r['aqi']} ({r['aqi_category']})<br>
-                    <span style="color: #666;">PM2.5: {r['pm2_5']} µg/m³ • Safety: <b>{r[safety_col]}/10</b></span>
+                <div style="background: #FFFFFF; border-radius: 10px; border: 1px solid var(--border); border-left: 4px solid {r['aqi_color']}; padding: 0.65rem 0.95rem; margin-bottom: 0.45rem; font-size: 0.88rem; box-shadow: 0 2px 6px rgba(30, 90, 50, 0.02);">
+                    <div style="font-family: 'Poppins', sans-serif; font-weight: 700; color: #1E5A32; font-size: 0.95rem; display: flex; justify-content: space-between; align-items: center;">
+                        <span>{r['locality']}</span>
+                        <span class="aqi-pill" style="background: {r['aqi_color']}; font-size: 10px; padding: 2px 6px;">AQI {r['aqi']}</span>
+                    </div>
+                    <div style="color: #557060; font-size: 0.82rem; margin-top: 0.25rem;">
+                        PM2.5: <strong style="color: #1B2C20;">{r['pm2_5']} µg/m³</strong> · Safety: <strong style="color: #1E5A32;">{r[safety_col]}/10</strong>
+                    </div>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -729,7 +1013,7 @@ with tab_trend:
         y=loc_fc_agg["pm2_5_q10"],
         mode="lines",
         fill="tonexty",
-        fillcolor="rgba(46, 125, 50, 0.18)",
+        fillcolor="rgba(63, 163, 77, 0.16)",
         line=dict(width=0),
         name="80% Prediction Interval (q10 - q90)",
     ))
@@ -739,23 +1023,27 @@ with tab_trend:
         x=loc_fc_agg["horizon_hours"],
         y=loc_fc_agg["pm2_5"],
         mode="lines+markers",
-        line=dict(color="#1b5e20", width=3),
-        marker=dict(size=5, color="#1b5e20"),
+        line=dict(color="#1E5A32", width=3),
+        marker=dict(size=5, color="#1E5A32"),
         name="Expected PM2.5 (Mean Forecast)",
         hovertemplate="Horizon: +%{x}h<br>PM2.5: %{y:.1f} µg/m³<extra></extra>",
     ))
 
-    # Reference lines for Indian AQI category thresholds (Moderate: 60, Poor: 90, Very Poor: 120, Severe: 250)
-    fig.add_hline(y=60, line_dash="dot", line_color="#fbc02d", annotation_text="Satisfactory Threshold (60 µg/m³)")
-    fig.add_hline(y=90, line_dash="dash", line_color="#f57c00", annotation_text="Moderate Threshold (90 µg/m³)")
-    fig.add_hline(y=120, line_dash="dash", line_color="#d32f2f", annotation_text="Poor Threshold (120 µg/m³)")
+    # Reference lines for Indian AQI category thresholds (Satisfactory: 60, Moderate: 90, Poor: 120)
+    fig.add_hline(y=60, line_dash="dot", line_color="#92D050", annotation_text="Satisfactory Threshold (60 µg/m³)")
+    fig.add_hline(y=90, line_dash="dash", line_color="#FF9900", annotation_text="Moderate Threshold (90 µg/m³)")
+    fig.add_hline(y=120, line_dash="dash", line_color="#FF0000", annotation_text="Poor Threshold (120 µg/m³)")
 
     fig.update_layout(
         title=f"72-Hour PM2.5 Projection for {plot_loc}, Patiala",
+        font=dict(family="Inter, sans-serif"),
+        title_font=dict(family="Poppins, sans-serif", size=17, color="#1E5A32"),
         xaxis_title="Forecast Horizon (Hours from now)",
         yaxis_title="PM2.5 Concentration (µg/m³)",
         hovermode="x unified",
         template="plotly_white",
+        plot_bgcolor="#FFFFFF",
+        paper_bgcolor="#FFFFFF",
         height=480,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
@@ -784,14 +1072,19 @@ with tab_safety:
         s_vuln = calculate_safety_index(calc_aqi, "vulnerable")
         s_resp = calculate_safety_index(calc_aqi, "respiratory")
 
+        s_h_color = '#00B050' if s_healthy >= 7 else '#FF9900' if s_healthy >= 4 else '#C00000'
+        s_v_color = '#00B050' if s_vuln >= 7 else '#FF9900' if s_vuln >= 4 else '#C00000'
+        s_r_color = '#00B050' if s_resp >= 7 else '#FF9900' if s_resp >= 4 else '#C00000'
+
         st.markdown(
             f"""
-            <div style="background: #ffffff; border-radius: 12px; padding: 1.4rem; border: 1px solid #dcedc8; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
-                <h4 style="margin: 0; color: #1b5e20;">Safety Ratings for AQI {calc_aqi}</h4>
-                <div style="margin: 1rem 0; font-size: 1.05rem; line-height: 2.0;">
-                    • <b>Healthy Adult (factor 1.0)</b>: <span style="font-size: 1.4rem; font-weight: 700; color: {'#2e7d32' if s_healthy >= 7 else '#f57c00' if s_healthy >= 4 else '#d32f2f'};">{s_healthy} / 10</span><br>
-                    • <b>Children / Elderly / Pregnant (factor 1.25)</b>: <span style="font-size: 1.4rem; font-weight: 700; color: {'#2e7d32' if s_vuln >= 7 else '#f57c00' if s_vuln >= 4 else '#d32f2f'};">{s_vuln} / 10</span><br>
-                    • <b>Asthma / Lung Condition (factor 1.5)</b>: <span style="font-size: 1.4rem; font-weight: 700; color: {'#2e7d32' if s_resp >= 7 else '#f57c00' if s_resp >= 4 else '#d32f2f'};">{s_resp} / 10</span>
+            <div class="stat-card" style="padding: 1.4rem;">
+                <div class="stat-top-bar" style="background: var(--accent); width: 36px; height: 3px;"></div>
+                <h4 style="margin: 0 0 0.8rem 0; color: #1E5A32; font-family: 'Poppins', sans-serif;">Safety Ratings for AQI {calc_aqi}</h4>
+                <div style="font-size: 1.02rem; line-height: 2.2;">
+                    • <b>Healthy Adult (factor 1.0)</b>: <span style="font-family: 'Poppins', sans-serif; font-size: 1.35rem; font-weight: 700; color: {s_h_color};">{s_healthy} / 10</span><br>
+                    • <b>Children / Elderly / Pregnant (factor 1.25)</b>: <span style="font-family: 'Poppins', sans-serif; font-size: 1.35rem; font-weight: 700; color: {s_v_color};">{s_vuln} / 10</span><br>
+                    • <b>Asthma / Lung Condition (factor 1.5)</b>: <span style="font-family: 'Poppins', sans-serif; font-size: 1.35rem; font-weight: 700; color: {s_r_color};">{s_resp} / 10</span>
                 </div>
             </div>
             """,
@@ -800,14 +1093,22 @@ with tab_safety:
 
     with s_col2:
         safety_summ = get_safety_summary(calc_aqi)
-        st.markdown("#### Clinical Action Guidelines")
-        st.info(f"💡 **Advisory**: {safety_summ['advisory']}")
         st.markdown(
-            """
-            - **N95 Respirators**: Essential when Safety Index drops below **4.0**.
-            - **School Morning Outdoor Activity**: Shift indoors when children's Safety Index is below **5.0**.
-            - **Air Purifier Operation**: Recommended when indoor baseline index drops below **6.0**.
-            """
+            f"""
+            <div class="stat-card" style="padding: 1.4rem;">
+                <div class="stat-top-bar" style="background: var(--main); width: 36px; height: 3px;"></div>
+                <h4 style="margin: 0 0 0.8rem 0; color: #1E5A32; font-family: 'Poppins', sans-serif;">Clinical Action Guidelines</h4>
+                <div style="background: #E8F4E6; border-left: 4px solid var(--accent); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 14px; color: #1E5A32;">
+                    💡 <b>Advisory:</b> {safety_summ['advisory']}
+                </div>
+                <ul style="color: #1B2C20; font-size: 14px; line-height: 1.8; padding-left: 1.2rem; margin: 0;">
+                    <li><b>N95 Respirators:</b> Essential when Safety Index drops below <b>4.0</b>.</li>
+                    <li><b>School Outdoor Activity:</b> Shift indoors when children's Safety Index is below <b>5.0</b>.</li>
+                    <li><b>Air Purifier Operation:</b> Recommended when indoor baseline index drops below <b>6.0</b>.</li>
+                </ul>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
 
 # -----------------------------------------------------------------------------
@@ -1324,11 +1625,15 @@ with tab_eval:
                 x=df_feat["Importance"],
                 y=df_feat["Feature"],
                 orientation="h",
-                marker_color="#2e7d32",
+                marker_color="#1E5A32",
             ))
             fig_feat.update_layout(
                 title="LightGBM Split Feature Importances",
+                font=dict(family="Inter, sans-serif"),
+                title_font=dict(family="Poppins, sans-serif", size=16, color="#1E5A32"),
                 xaxis_title="Split Count",
+                plot_bgcolor="#FFFFFF",
+                paper_bgcolor="#FFFFFF",
                 height=380,
                 margin=dict(l=10, r=10, t=30, b=10),
             )
